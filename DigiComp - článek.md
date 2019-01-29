@@ -1,3 +1,5 @@
+![](./pozadi.png)
+
 # Doporučení pro lepší online bezpečnost
 
 Každý den se dostáváme do styku s online prostředím, které v posledních několika letech nabylo na důležitosti. Na internetu je snadné najít si práci, vztah, zajistit si půjčku nebo bydlení a spoustu dalších věcí včetně ovládání chytré domácnosti. Vše se zdá být v pořádku do okamžiku, kdy se zamyslíme nad naším soukromím, bezpečností online světa a především naším přístupem k této problematice. Právě tento článek se zaměří na možné problémy práce v online prostředí a doporučí možné nástroje k jejich řešení nebo alespoň poradí jak být na internetu co možná nejvíce v bezpečí.
