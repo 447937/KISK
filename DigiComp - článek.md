@@ -45,7 +45,7 @@ Běžné zabezpečení účtu heslem je možné rozšířit o tzv. dvoufaktorov�
 Úplným základem je však dobře zvolené heslo tak aby nešlo uhodnout na základě znalostí o konkrétní osobě a aby bylo pro každý účet unikátní. Rovněž by se mělo v čase měnit nebo alespoň z větší části obměňovat. Existuje několik doporučení jak by správné heslo mělo a nemělo vypadat. Tato doporučení by se dala shrnout do následujících bodů:
 
 -   Heslo musí být delší než 8 znaků a čím delší je, tím lépe.
--   Používejte číslice i speciální znaky (např.: ***( ) , . ; - \* / + % \# @***)
+-   Používejte číslice i speciální znaky (např.: ( ) , . ; - \* / + % \# @)
 -   Nepoužívejte smysluplná slova a jednoduché číselné řady.
 -   Součástí hesla nesmí být název služby nebo účtu který používáte.
 -   V hesle by se neměl vyskytnout současný rok.
