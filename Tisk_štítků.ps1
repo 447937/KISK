@@ -19,7 +19,7 @@ $k_uri="--KOHA STAFF URL--/api/v1/patrons"
 #############################
 
 Clear-Host
-Write-Host "`t`t`t`t`t`t`t>>> Zebrový tiskař štítků <<<"
+Write-Host "`t`t`t>>> Zebrový tiskař štítků <<<"
 
 FUNCTION Write-Menu {
     Write-Host "`n> MENU:"
@@ -32,16 +32,16 @@ FUNCTION Write-Menu {
     Write-Host "  q: Ukončit skript"
 
     $volba = Read-Host -Prompt "`n~ Volba"
-    switch ( $volba )
-    {
-        0 { tisk-ctenare }
-        1 { tisk-carkod-na-prukazku }
-        2 { tisk-carkod-na-knihu }
-        #m { MVS }
-        #adm { nastveni-zebry }
-        d { probe-KOHA }
-        q { pac-a-pusu }
-    }
+        switch ( $volba )
+        {
+            0 { tisk-ctenare }
+            1 { vytvor-barcode -b_typ p }
+            2 { vytvor-barcode -b_typ k }
+            #m { MVS }
+            #adm { nastveni-zebry }
+            d { probe-KOHA }
+            q { pac-a-pusu }
+        }
     Write-Menu <# Zachycení neplatné volby a taky doběhlé funkce...nechť rekurze vládne světu #>
 }
 
@@ -55,7 +55,7 @@ FUNCTION tisk($tdata) {
         # CMD cesta vede skrze soubor copy $pf \\localhost\tiskarna
         Clear-Variable -Name tdata
     }
-    else { Write-Host "@func tisk Error: Žádná data k tisku."}
+    else { Write-Host "`n@func tisk Error: Žádná data k tisku."}
 }
 
 FUNCTION pac-a-pusu {
@@ -63,69 +63,73 @@ FUNCTION pac-a-pusu {
     Start-Sleep -s 0.5
     exit
 }
-    
-FUNCTION tisk-carkod-na-knihu { #EAN-13
-    Write-Host "`n> DÁVKOVÝ tisk čárových kódů na knihy"
-    [long]$kod = Read-Host -Prompt "~ Začátek generovaného rozsahu"
-    [int]$kolik = Read-Host -Prompt "~ Počet tisknutých štítků"
-    [int]$i=0
 
-    do {
-    $a = "
-    ^XA
-        ^CI28
-        ^FO60,10^BY3
-        ^BEN,80,Y,N
-        ^FD$kod^FS
-        ^FT^A0N,30,20^FO105,125^FDKnihovna na Křižovatce^FS
-    ^XZ"
 
-    write-host "@func tisk-carkod-na-knihu Data: $i, $kod"
-    tisk -tdata $a
-    $i++
-    $kod++
-    } while ( $i -lt $kolik ) 
-}
+FUNCTION vytvor-barcode ($b_typ, [long]$bdata) { #k = knihy; p = průkazky
+    if ( $bdata -eq 0 ) {    
+        switch ( $b_typ )
+        {
+            k { Write-Host "`n> DÁVKOVÝ tisk čárových kódů na knihy" }
+            p { Write-Host "`n> DÁVKOVÝ tisk čárových kódů na průkazky" }
+        }
+    }
 
-FUNCTION tisk-carkod-na-prukazku {  #CODE_128
-    Write-Host "`n> DÁVKOVÝ tisk čárových kódů na průkazky"
-    [long]$kod = Read-Host -Prompt "~ Začátek generovaného rozsahu"
-    [int]$kolik = Read-Host -Prompt "~ Počet tisknutých štítků"
-    [int]$i=0
+    if ( $bdata -ne 0 ) { [long]$kod = $bdata; Write-Host "~ Začátek generovaného rozsahu je $kod" }
+    else { 
+        TRY {
+            [long]$kod = Read-Host -Prompt "~ Začátek generovaného rozsahu"
+        }
+        CATCH {
+            [int]$b_error = 1
+            $ErrorMessage = $_.Exception.Message
+            Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`nChybové hlášení: $ErrorMessage"
+        }
+    }
 
-    do {
-        $a="
-        ^XA
-            ^CI28
-            ^FO15,10^BY3
-            ^BCN,80,Y,N,N
-            ^FD$kod^FS
-            ^FT^A0N,30,20^FO105,125^FDKnihovna na Křižovatce^FS
-        ^XZ"
-        
-        write-host "@func tisk-carkod-na-prukazku Data: $i, $kod"
-        tisk -tdata $a
-        $i++
-        $kod++
-    } while ( $i -lt $kolik )
+    if ( $kod -ne $null ) {
+        TRY {
+            [int]$kolik = Read-Host -Prompt "~ Počet tisknutých štítků"
+            [int]$b_error=0
+        }
+        CATCH {
+            [int]$b_error=1
+            Write-Host "> Neplatná hodnota! Opakujte zadání..."
+            vytvor-barcode -b_typ $b_typ -bdata $kod
+        }
+    }
+
+    if ( $b_error -ne 1 ) { 
+        switch ( $b_typ )
+        {
+            k { $b_fill = "^FO60,10^BY3 ^BEN,80,Y,N" } #EAN-13
+            p { $b_fill = "^FO15,10^BY3 ^BCN,80,Y,N,N" } #CODE_128
+        }
+
+        do {
+            $a= "^XA ^CI28 $b_fill ^FD$kod^FS ^FT^A0N,30,20^FO105,125^FDKnihovna na Křižovatce^FS ^XZ"
+            #write-host "@func tisk-carkod-na-knihu Data: $i, $kod"
+            tisk -tdata $a
+            $i++ ; $kod++
+        } while ( $i -lt $kolik )
+    }
+
+    Clear-Variable -Name bdata, b_error 2>&1 | Out-Null
 }
 
 FUNCTION tisk-ctenare {
     Write-Host "`n> Tisk čtenářské průkazky"
 
-    Try { 
-        [int]$p_error=0
+    TRY {
         [long]$prukazka = Read-Host -Prompt "~ Číslo průkazky" }
-    Catch { 
+    CATCH { 
         [int]$p_error=1
         $ErrorMessage = $_.Exception.Message
-        Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n`tChybové hlášení: $ErrorMessage"
+        Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`nChybové hlášení: $ErrorMessage"
     }
 
-    if ( $p_error -eq 0 ) {
-        Try {
-            [int]$k_error=0
-            $ErrorMessage="Zadaná hodnota odpovídá více než jednomu čtenáři." #Tohle vyteče jinde, když to bude třeba :)
+    if ( $p_error -ne 1 ) {
+        TRY {
+            $ErrorMessage="Zadaná hodnota NEodpovídá právě jednomu čtenáři." #Tohle vyteče jinde, když to bude třeba :)
             $script:cdata= Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("${k_user}:${k_pass}")) } -URI "$k_uri`?cardnumber=$prukazka"
 
             [string]$c_jmeno = $cdata.firstname
@@ -136,14 +140,14 @@ FUNCTION tisk-ctenare {
             [string]$c_mesto = $cdata.city
             [string]$c_psc = $cdata.postal_code
         }
-        Catch {
+        CATCH {
             [int]$k_error=1
             $ErrorMessage = $_.Exception.Message
-            Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n`tChybové hlášení: $ErrorMessage"
+            Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`nChybové hlášení: $ErrorMessage"
         }
     }
 
-    if ( $k_error -eq 1 -OR $cdata.count -ne 1 ) { Write-Host "@func tisk-ctenare Error: $ErrorMessage" }
+    if ( $k_error -eq 1 -OR $cdata.count -ne 1 ) { Write-Host "`n@func tisk-ctenare Error: $ErrorMessage" }
     elseif ( $cdata.category_id -eq "D" ) { 
         $a="  
         ^XA
@@ -183,81 +187,12 @@ FUNCTION tisk-ctenare {
             ^FT^A0N,30,23^FO85,120^FD$c_mesto $c_psc^FS
         ^XZ"
     }
-    else { Write-Host "@func tisk-ctenare Error: Neplatné číslo průkazky / nepodařilo se získat data." }
+    else { Write-Host "`n@func tisk-ctenare Error: Staršlivá chyba, která teoreticky může nastat, ale programátora zrovna nenapadla...Na všechno totiž musí(m) mít odpověď :P" }
 
-    tisk -tdata $a
-    Clear-Variable -Name prukazka, p_error, k_error, ErrorMessage, cdata, c_jmeno, c_prijmeni, c_rok, ctenar_rok, c_ulice, c_cp, c_mesto, c_psc, a 2>&1 | Out-Null
+    if ( $a -ne $null ) { tisk -tdata $a ; $k_error }
+
+    Clear-Variable -Name prukazka, p_error, k_error, ErrorMessage, cdata, a 2>&1 | Out-Null
 }
-
-<#
-FUNCTION ctenar_mladsi {
-
-    $a= "
-    ^XA
-        ^CI28
-        ^FT^A0N,30,20^FO10,10^FDJméno:^FS
-        ^FT^A0N,30,23^FO75,10^FD$cdata.firstname $cdata.surname^FS
-        ^FT^A0N,30,20^FO10,50^FDRok narození:^FS
-        ^FT^A0N,30,23^FO125,50^FD$ctenar_rok[0]^FS
-        ^FT^A0N,30,20^FO10,90^FDBydlište:^FS
-        ^FT^A0N,30,23^FO85,90^FD$cdata.address $cdata.street_number^FS
-        ^FT^A0N,30,23^FO85,120^FD$cdata.city $cdata.postal_code^FS
-    ^XZ"
-# DRUHÁ VARIANTA
-#    ^XA
-#        ^FT^A0N,30,20^FO10,10^FDCTENARSKY PRUKAZ c.:^FS
-#        ^FT^A0N,30,23^FO215,10^FD$prukazka^FS
-#        ^FT^A0N,30,20^FO10,50^FDJmeno:^FS
-#        ^FT^A0N,30,23^FO75,50^FD$ctenar_jmeno ($ctenar_rok)^FS
-#        ^FT^A0N,30,20^FO10,90^FDBydliste:^FS
-#        ^FT^A0N,30,23^FO85,90^FD$ctenar_bydlo^FS
-#        ^FT^A0N,30,23^FO85,120^FD$ctenar_bydlo2^FS
-#    ^XZ
-#
-    ##tisk-stitek-na-prukazku
-    tisk-carkod-na-prukazku -dataCnP $prukazka
-    tisk -tdata $a
-}
-#>
-
-<#  TO BE DELETED po domluvě jestli to náhodou někdy nebudeme potřebovat
-FUNCTION ctenar_starsi {
-    $ctenar_jmeno = Read-Host -Prompt "~ Jméno a přijímení"
-    $ctenar_bydlo = Read-Host -Prompt "~ Bydliště"
-    $ctenar_bydlo2 = Read-Host -Prompt "          "
-
-    $a= "
-    ^XA
-        ^CI28
-        ^FT^A0N,30,20^FO10,10^FDČTENAŘSKY PRŮKAZ č.:^FS
-        ^FT^A0N,30,23^FO215,10^FD$prukazka^FS
-        ^FT^A0N,30,20^FO10,50^FDJméno:^FS
-        ^FT^A0N,30,23^FO75,50^FD$ctenar_jmeno^FS
-        ^FT^A0N,30,20^FO10,90^FDBydlište:^FS
-        ^FT^A0N,30,23^FO85,90^FD$ctenar_bydlo^FS
-        ^FT^A0N,30,23^FO85,120^FD$ctenar_bydlo2^FS
-    ^XZ"
-
-    ##tisk-stitek-na-prukazku
-    tisk-carkod-na-prukazku -dataCnP $prukazka
-    tisk -tdata $a
-}
-#>
-<#                       MOŽNÁ SE POUŽIJE
-FUNCTION MVS {
-    #TŘEBA TAKTO:
-    $a="
-    ^XA^LRY
-        ^CI28
-        ^FO120,10^GB160,100,100^FS
-        ^FO135,40^CFG^FDMVS^FS
-        ^LRN
-        ^FT^A0N,30,20^FO105,125^FDKnihovna na Křižovatce^FS
-    ^XZ"
-
-    tisk -tdata $a    
-}
-#>
 
 <#  TECH INFO
 1 mm = 8 Zebra dots 
