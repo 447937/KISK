@@ -45,7 +45,7 @@ FUNCTION Write-Menu {
     Write-Menu <# Zachycení neplatné volby a taky doběhlé funkce...nechť rekurze vládne světu #>
 }
 
-FUNCTION tisk($tdata) {
+FUNCTION tisk ($tdata) {
     ## víc info na https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/out-printer?view=powershell-7
     # Write-Output $data | Out-Printer -Name '--název tiskárny--' 
 
@@ -74,31 +74,27 @@ FUNCTION vytvor-barcode ($b_typ, [long]$bdata) { #k = knihy; p = průkazky
         }
     }
 
-    if ( $bdata -ne 0 ) { [long]$kod = $bdata; Write-Host "~ Začátek generovaného rozsahu je $kod" }
+    if ( $bdata -ne 0 ) { [long]$kod = $bdata;  Write-Host "~ Začátek generovaného rozsahu je $kod" }
     else { 
-        TRY {
-            [long]$kod = Read-Host -Prompt "~ Začátek generovaného rozsahu"
-        }
+        TRY { [long]$kod = Read-Host -Prompt "~ Začátek generovaného rozsahu" }
         CATCH {
             [int]$b_error = 1
             $ErrorMessage = $_.Exception.Message
-            Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`nChybové hlášení: $ErrorMessage"
+            Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
         }
     }
 
-    if ( $kod -ne $null ) {
-        TRY {
-            [int]$kolik = Read-Host -Prompt "~ Počet tisknutých štítků"
-            [int]$b_error=0
-        }
+    if ( $b_error -ne 1 -AND $kod -gt 1 ) {
+        TRY { [int]$kolik = Read-Host -Prompt "~ Počet tisknutých štítků" }
         CATCH {
-            [int]$b_error=1
-            Write-Host "> Neplatná hodnota! Opakujte zadání..."
+            Write-Host "> Neplatná hodnota! Opakujte zadání..." ; $e_mess=1
             vytvor-barcode -b_typ $b_typ -bdata $kod
+            Clear-Variable -Name bdata, kolik, b_error 2>&1 | Out-Null
+            [int]$b_error=1
         }
     }
 
-    if ( $b_error -ne 1 ) { 
+    if ( $b_error -ne 1 -AND ( $kolik -gt 1 -AND $kod -gt 1 ) ) { 
         switch ( $b_typ )
         {
             k { $b_fill = "^FO60,10^BY3 ^BEN,80,Y,N" } #EAN-13
@@ -112,22 +108,24 @@ FUNCTION vytvor-barcode ($b_typ, [long]$bdata) { #k = knihy; p = průkazky
             $i++ ; $kod++
         } while ( $i -lt $kolik )
     }
+    elseif ( $e_mess -ne 1 ) { Write-Host "`n@func vytvor-barcode Error: Chybně zadané hodnoty pro čárový kód anebo množství." }
 
-    Clear-Variable -Name bdata, b_error 2>&1 | Out-Null
+    Clear-Variable -Name bdata, b_error, i, kolik, kod 2>&1 | Out-Null
 }
 
 FUNCTION tisk-ctenare {
     Write-Host "`n> Tisk čtenářské průkazky"
 
     TRY {
+        $ErrorMessage="Nebylo zadáno číslo průkazky." #Tohle vyteče jinde, když to bude třeba :)
         [long]$prukazka = Read-Host -Prompt "~ Číslo průkazky" }
     CATCH { 
         [int]$p_error=1
         $ErrorMessage = $_.Exception.Message
-        Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`nChybové hlášení: $ErrorMessage"
+        Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
     }
 
-    if ( $p_error -ne 1 ) {
+    if ( $p_error -ne 1 -AND $prukazka -ne "" ) {
         TRY {
             $ErrorMessage="Zadaná hodnota NEodpovídá právě jednomu čtenáři." #Tohle vyteče jinde, když to bude třeba :)
             $script:cdata= Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("${k_user}:${k_pass}")) } -URI "$k_uri`?cardnumber=$prukazka"
@@ -143,11 +141,11 @@ FUNCTION tisk-ctenare {
         CATCH {
             [int]$k_error=1
             $ErrorMessage = $_.Exception.Message
-            Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`nChybové hlášení: $ErrorMessage"
+            Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
         }
     }
 
-    if ( $k_error -eq 1 -OR $cdata.count -ne 1 ) { Write-Host "`n@func tisk-ctenare Error: $ErrorMessage" }
+    if ( ( $p_error -eq 1 -OR $k_error -eq 1 ) -OR ( $cdata.count -ne 1 -OR $prukazka -eq "" ) ) { Write-Host "`n@func tisk-ctenare Error: $ErrorMessage" }
     elseif ( $cdata.category_id -eq "D" ) { 
         $a="  
         ^XA
@@ -181,13 +179,13 @@ FUNCTION tisk-ctenare {
             ^FT^A0N,30,20^FO10,10^FDČTENAŘSKY PRŮKAZ č.:^FS
             ^FT^A0N,30,23^FO215,10^FD$prukazka^FS
             ^FT^A0N,30,20^FO10,50^FDJméno:^FS
-            ^FT^A0N,30,23^FO75,50^FD$c_jmeno^FS
+            ^FT^A0N,30,23^FO75,50^FD$c_jmeno $c_prijmeni^FS
             ^FT^A0N,30,20^FO10,90^FDBydlište:^FS
             ^FT^A0N,30,23^FO85,90^FD$c_ulice $c_cp^FS
             ^FT^A0N,30,23^FO85,120^FD$c_mesto $c_psc^FS
         ^XZ"
     }
-    else { Write-Host "`n@func tisk-ctenare Error: Staršlivá chyba, která teoreticky může nastat, ale programátora zrovna nenapadla...Na všechno totiž musí(m) mít odpověď :P" }
+    else { Write-Host "`n@func tisk-ctenare Error: Nedefinovaná chyba...dejte vědět jak se to stalo. :) " }
 
     if ( $a -ne $null ) { tisk -tdata $a ; $k_error }
 
@@ -200,7 +198,6 @@ Lepítka: šířka 5 cm = ^PW400
 
 Pokladní rolka (continuous media ^MNxxx ^LL): 7,5 cm = ^PW600
 zkošuíme: ^MNV,0
-
 #>
 
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
