@@ -8,15 +8,16 @@ Je nutný mít správně nastavenou tiskárnu ve Windows, tak aby brala surová 
 Pro čárové kódy používáme CODE_128 i EAN-13 (záleží jak na co).
 #>
 
-#testovací fígl:
-$kam='./out.txt' #kde se má tisknout, resp kam má jít textový výstup? - správně to má být tiskárna, nikoliv soubor
-
-## KOHA autorizační údaje
-# Vyžaduje povolený BasicAuth pro REST API v KOHA
+## ## ## ## ## ## ## ## ## ## NASTAVENÍ ## ## ## ## ## ## ## ## ## ##
+# Nastavení výstupu
+$zebra=""
+# Maximální počet generovaných štítků
+[int]$i_max=100
+# KOHA login a URI (Nutný povolit BasicAuth pro REST API v KOHA)
 $k_user="--uzivatel--"
 $k_pass="--heslo--"
 $k_uri="--KOHA STAFF URL--/api/v1/patrons"
-#############################
+## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 Clear-Host
 Write-Host "`t`t`t>>> Zebrový tiskař štítků <<<"
@@ -32,7 +33,7 @@ FUNCTION Write-Menu {
     Write-Host "  q: Ukončit skript"
 
     $volba = Read-Host -Prompt "`n~ Volba"
-        switch ( $volba )
+        SWITCH ( $volba )
         {
             0 { tisk-ctenare }
             1 { vytvor-barcode -b_typ p }
@@ -42,20 +43,17 @@ FUNCTION Write-Menu {
             d { probe-KOHA }
             q { pac-a-pusu }
         }
-    Write-Menu <# Zachycení neplatné volby a taky doběhlé funkce...nechť rekurze vládne světu #>
+    Write-Menu # Zachycení neplatné volby a taky doběhlé funkce...nechť rekurze vládne světu
 }
 
 FUNCTION tisk ($tdata) {
-    ## víc info na https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/out-printer?view=powershell-7
-    # Write-Output $data | Out-Printer -Name '--název tiskárny--' 
-
     if ( $tdata -ne $null ) {
-        Write-Host "@func tisk"
-        Write-Output $tdata #>> $kam #> $pf  NEBO přímo ROZHRANÍ USBfň     #tiskárna baští
-        # CMD cesta vede skrze soubor copy $pf \\localhost\tiskarna
+        Write-Host "`n@func tisk INFO: Data se odesílají do tiskárny..."
+        Write-Output $tdata #>> $kam #> $pf  NEBO přímo ROZHRANÍ USBfň?
+        # Out-Printer -InputObject $tdata -Name $zebra
         Clear-Variable -Name tdata
     }
-    else { Write-Host "`n@func tisk Error: Žádná data k tisku."}
+    else { Write-Host "`n@func tisk ERROR: Žádná data k tisku."}
 }
 
 FUNCTION pac-a-pusu {
@@ -64,19 +62,16 @@ FUNCTION pac-a-pusu {
     exit
 }
 
-
-FUNCTION vytvor-barcode ($b_typ, [long]$bdata) { #k = knihy; p = průkazky
-    if ( $bdata -eq 0 ) {    
-        switch ( $b_typ )
+FUNCTION vytvor-barcode ( $b_typ, [long]$bdata ) { #k = knihy; p = průkazky
+    if ( $bdata -ne 0 ) { [long]$kod = $bdata; Write-Host "~ Začátek generovaného rozsahu je $kod" }
+    else { 
+        SWITCH ( $b_typ )
         {
             k { Write-Host "`n> DÁVKOVÝ tisk čárových kódů na knihy" }
             p { Write-Host "`n> DÁVKOVÝ tisk čárových kódů na průkazky" }
         }
-    }
 
-    if ( $bdata -ne 0 ) { [long]$kod = $bdata;  Write-Host "~ Začátek generovaného rozsahu je $kod" }
-    else { 
-        TRY { [long]$kod = Read-Host -Prompt "~ Začátek generovaného rozsahu" }
+        TRY { [long]$kod = Read-Host -Prompt "~ Začátek generovaného rozsahu"; $e_mess = 1 }
         CATCH {
             [int]$b_error = 1
             $ErrorMessage = $_.Exception.Message
@@ -84,18 +79,18 @@ FUNCTION vytvor-barcode ($b_typ, [long]$bdata) { #k = knihy; p = průkazky
         }
     }
 
-    if ( $b_error -ne 1 -AND $kod -gt 1 ) {
-        TRY { [int]$kolik = Read-Host -Prompt "~ Počet tisknutých štítků" }
+    if ( $b_error -ne 1 -AND $kod -ge 1 ) {
+        TRY { [int]$kolik = Read-Host -Prompt "~ Počet tisknutých štítků"; $e_mess = 1 }
         CATCH {
-            Write-Host "> Neplatná hodnota! Opakujte zadání..." ; $e_mess=1
+            Write-Host "> Neplatná hodnota! Opakujte zadání..."; $e_mess = 0
             vytvor-barcode -b_typ $b_typ -bdata $kod
             Clear-Variable -Name bdata, kolik, b_error 2>&1 | Out-Null
-            [int]$b_error=1
+            [int]$b_error = 1
         }
     }
 
-    if ( $b_error -ne 1 -AND ( $kolik -gt 1 -AND $kod -gt 1 ) ) { 
-        switch ( $b_typ )
+    if ( $b_error -ne 1 -AND ( $kolik -ge 1 -AND $kod -ge 1 )) {
+        SWITCH ( $b_typ )
         {
             k { $b_fill = "^FO60,10^BY3 ^BEN,80,Y,N" } #EAN-13
             p { $b_fill = "^FO15,10^BY3 ^BCN,80,Y,N,N" } #CODE_128
@@ -103,12 +98,13 @@ FUNCTION vytvor-barcode ($b_typ, [long]$bdata) { #k = knihy; p = průkazky
 
         do {
             $a= "^XA ^CI28 $b_fill ^FD$kod^FS ^FT^A0N,30,20^FO105,125^FDKnihovna na Křižovatce^FS ^XZ"
-            #write-host "@func tisk-carkod-na-knihu Data: $i, $kod"
+            #write-host "@func tisk-carkod-na-knihu DATA: $i, $kod"
             tisk -tdata $a
             $i++ ; $kod++
-        } while ( $i -lt $kolik )
+        } while ( $i -lt $kolik -AND $i -lt $i_max ) 
+        if ( $i -ge $i_max ) { Write-Host "`n@func vytvor-barcode INFO: Překročen maximální počet tisknutelných štítků (nyní $i_max štítků v dávce)." }
     }
-    elseif ( $e_mess -ne 1 ) { Write-Host "`n@func vytvor-barcode Error: Chybně zadané hodnoty pro čárový kód anebo množství." }
+    elseif ( $e_mess -eq 1 ) { Write-Host "`n@func vytvor-barcode ERROR: Chybně zadané hodnoty pro čárový kód anebo množství." }
 
     Clear-Variable -Name bdata, b_error, i, kolik, kod 2>&1 | Out-Null
 }
@@ -145,7 +141,7 @@ FUNCTION tisk-ctenare {
         }
     }
 
-    if ( ( $p_error -eq 1 -OR $k_error -eq 1 ) -OR ( $cdata.count -ne 1 -OR $prukazka -eq "" ) ) { Write-Host "`n@func tisk-ctenare Error: $ErrorMessage" }
+    if ( ( $p_error -eq 1 -OR $k_error -eq 1 ) -OR ( $cdata.count -ne 1 -OR $prukazka -eq "" ) ) { Write-Host "`n@func tisk-ctenare ERROR: $ErrorMessage" }
     elseif ( $cdata.category_id -eq "D" ) { 
         $a="  
         ^XA
@@ -185,9 +181,9 @@ FUNCTION tisk-ctenare {
             ^FT^A0N,30,23^FO85,120^FD$c_mesto $c_psc^FS
         ^XZ"
     }
-    else { Write-Host "`n@func tisk-ctenare Error: Nedefinovaná chyba...dejte vědět jak se to stalo. :) " }
+    else { Write-Host "`n@func tisk-ctenare ERROR: Nedefinovaná chyba...dejte vědět jak se to stalo. :) " }
 
-    if ( $a -ne $null ) { tisk -tdata $a ; $k_error }
+    if ( $a -ne $null ) { tisk -tdata $a }
 
     Clear-Variable -Name prukazka, p_error, k_error, ErrorMessage, cdata, a 2>&1 | Out-Null
 }
@@ -198,6 +194,7 @@ Lepítka: šířka 5 cm = ^PW400
 
 Pokladní rolka (continuous media ^MNxxx ^LL): 7,5 cm = ^PW600
 zkošuíme: ^MNV,0
+
 #>
 
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
