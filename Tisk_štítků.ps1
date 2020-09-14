@@ -222,13 +222,16 @@ FUNCTION fronta-rezervaci {
             $obj_rezervace+=[PSCustomObject]@{
                 or_ID               = $i;
                 or_Datum_Pozadavku  = $rezervace.hold_date;
-                or_Autor            = $tab_xbiblio.Where({$_.biblionumber -eq ( $rezervace.biblio_id )}) | Select-Object author -ExpandProperty author;
-                or_Nazev_Knihy      = $tab_xbiblio.Where({$_.biblionumber -eq ( $rezervace.biblio_id )}) | Select-Object title -ExpandProperty title;
-                or_Signatura        = $tab_xbiblio.Where({$_.biblionumber -eq ( $rezervace.biblio_id )}) | Select-Object itemcallnumber -ExpandProperty itemcallnumber;
-                or_Lokace           = $tab_xlokace.Where({$_.Zkratka -eq ( $pom )}) | Select-Object Popisek -ExpandProperty Popisek;
-                or_Ctenar           = "$rc_jmeno $rc_prijmeni";
-                or_Barcode          = $tab_xbiblio.Where({$_.biblionumber -eq ( $rezervace.biblio_id )}) | Select-Object barcode -ExpandProperty barcode;
+                or_Autor            = $tab_xbiblio.Where({$_.biblionumber -eq ( $rezervace.biblio_id )}) | Select-Object author -ExpandProperty author
+                or_Nazev_Knihy      = $tab_xbiblio.Where({$_.biblionumber -eq ( $rezervace.biblio_id )}) | Select-Object title -ExpandProperty title
+                or_Signatura        = $tab_xbiblio.Where({$_.biblionumber -eq ( $rezervace.biblio_id )}) | Select-Object itemcallnumber -ExpandProperty itemcallnumber
+                or_Lokace           = $tab_xlokace.Where({$_.Zkratka -eq ( $pom )}) | Select-Object Popisek -ExpandProperty Popisek
+                or_Ctenar           = "$rc_jmeno $rc_prijmeni"
+                or_Barcode          = $tab_xbiblio.Where({$_.biblionumber -eq ( $rezervace.biblio_id )}) | Select-Object barcode -ExpandProperty barcode
             }
+            
+            [int]$r_progress = $(100*$i/$r_pocet)
+            Write-Progress -Activity "Parsují se data" -Status "$r_progress% Hotovo" -PercentComplete $r_progress
             $i++
         }
     }
@@ -236,25 +239,43 @@ FUNCTION fronta-rezervaci {
 
     if ( $obj_rezervace.Count -ne 0 ) {
         Write-Host "`n`t`t`t~~ VÝPIS FRONTY REZERVACÍ ~~"
-        $a="^XA ^CI28 ..." #hlavička
+        [int]$line = 110 # vertikální pozice čáry v hlavičce
+        $a="^XA ^CI28 ^CF0,60 ^FO60,20^FDFRONTA REZERVACÍ^FS ^CF0,30 ^FO65,80^FDVygenerováno:^FS ^FO58,$line^GB490,1,2^FS" #hlavička
 
         ForEach ($rezervace in $obj_rezervace) {
-            $id = $rezervace.or_ID
-            $datum = $rezervace.or_Datum_Pozadavku
-            $autor = $rezervace.or_Autor
-            $kniha = $rezervace.or_Nazev_Knihy
-            $sig = $rezervace.or_Signatura
+            $id     = $rezervace.or_ID
+            $datum  = $rezervace.or_Datum_Pozadavku
+            $autor  = $rezervace.or_Autor
+            $kniha  = $rezervace.or_Nazev_Knihy
+            $sig    = $rezervace.or_Signatura
             $lokace = $rezervace.or_Lokace
             $ctenar = $rezervace.or_Ctenar
-            $bcode = $rezervace.or_Barcode
-                        
-            Write-Host "`n`n$id`:`tNázev:`t`t$kniha`n`tAutor:`t`t$autor`n`tSignatura:`t$sig`n`tLokace:`t`t$lokace`n`tKód:`t`t$bcode`n`tDatum:`t`t$datum`n`tČtenář:`t`t$ctenar"
-            $a="$a
-            ^FT^A0N,30,20^FO10,10^FD__data__: $kniha^FS
+            $bcode  = $rezervace.or_Barcode
+            
+            #140 = row1; 175 = row2; 205 = row3, 240 = row4; 280 = line
+            [int]$row1 = 30 + $line
+            [int]$row2 = 35 + $row1
+            [int]$row3 = 30 + $row2
+            [int]$row4 = 35 + $row3
+            [int]$line = 40 + $row4
+
+            Write-Host "`n$id`:`tNázev:`t`t$kniha`n`tAutor:`t`t$autor`n`tSignatura:`t$sig`n`tLokace:`t`t$lokace`n`tKód:`t`t$bcode`n`tDatum:`t`t$datum`n`tČtenář:`t`t$ctenar`n"
+            $a="$a 
+            ^CFA,20 ^FO20,$row1^FD$id.^FS
+            ^CFA,30,12
+            ^FO65,$row1^FDLokace:^FS
+            ^FO65,$row4^FDKomu:^FS
+            ^CF0,30
+            ^FO150,$row1^FD$lokace^FS
+            ^FO65,$row2^FD$kniha^FS
+            ^FO65,$row3^FD$autor ($sig)^FS
+            ^FO125,$row4^FD$ctenar^FS
+            ^FO15,$line^GB570,1,1^FS
             "
         }
         
-        $a="$a ^XZ"
+        $vygenerovano=Get-Date -Format "dd/MM/yyyy HH:mm"
+        $a="$a ^CFA,30 ^FO255,80^FD$vygenerovano^FS ^XZ" #LOL, zrůdnost a taky konec halvičky:D 
 
         $volba = Read-Host -Prompt "`n~ Vytisknout frontu rezervací? [ ANO = a,y,1 / NE = cokoliv jiného ]"
         if ($volba -eq "a" -OR $volba -eq "y" -OR $volba -eq "1") { tisk -tdata $a }
