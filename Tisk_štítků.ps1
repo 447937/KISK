@@ -77,7 +77,7 @@ FUNCTION vytvor-barcode ( $b_typ, [long]$bdata ) { #k = knihy; p = průkazky
 
         TRY { [long]$kod = Read-Host -Prompt "~ Začátek generovaného rozsahu"; $e_mess = 1 }
         CATCH {
-            [int]$b_error = 1
+            [bool]$b_error = 1
             $ErrorMessage = $_.Exception.Message
             Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
         }
@@ -89,7 +89,7 @@ FUNCTION vytvor-barcode ( $b_typ, [long]$bdata ) { #k = knihy; p = průkazky
             Write-Host "> Neplatná hodnota! Opakujte zadání..."; $e_mess = 0
             vytvor-barcode -b_typ $b_typ -bdata $kod
             Clear-Variable -Name bdata, kolik, b_error 2>&1 | Out-Null
-            [int]$b_error = 1
+            [bool]$b_error = 1
         }
     }
 
@@ -120,12 +120,12 @@ FUNCTION tisk-ctenare {
         $ErrorMessage="Nebylo zadáno číslo průkazky." #Tohle vyteče jinde, když to bude třeba :)
         [long]$prukazka = Read-Host -Prompt "~ Číslo průkazky" }
     CATCH { 
-        [int]$p_error=1
+        [bool]$c_error=1
         $ErrorMessage = $_.Exception.Message
         Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
     }
 
-    if ( $p_error -ne 1 -AND $prukazka -ne "" ) {
+    if ( $c_error -ne 1 -AND $prukazka -ne "" ) {
         TRY {
             $ErrorMessage="Zadaná hodnota NEodpovídá právě jednomu čtenáři." #Tohle vyteče jinde, když to bude třeba :)
             $cdata= Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("${k_user}:${k_pass}")) } -URI "$k_uri/patrons`?cardnumber=$prukazka"
@@ -139,13 +139,13 @@ FUNCTION tisk-ctenare {
             [string]$c_psc = $cdata.postal_code
         }
         CATCH {
-            [int]$k_error=1
+            [bool]$c_error=1
             $ErrorMessage = $_.Exception.Message
             Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
         }
     }
 
-    if ( ( $p_error -eq 1 -OR $k_error -eq 1 ) -OR ( $cdata.count -ne 1 -OR $prukazka -eq "" ) ) { Write-Host "`n@func tisk-ctenare ERROR: $ErrorMessage" }
+    if (  $c_error -eq 1 -OR ( $cdata.count -ne 1 -OR $prukazka -eq "" ) ) { Write-Host "`n@func tisk-ctenare ERROR: $ErrorMessage" }
     elseif ( $cdata.category_id -eq "D" ) { 
         $a="  
         ^XA
@@ -177,39 +177,39 @@ FUNCTION tisk-ctenare {
 
     if ( $a -ne $null ) { tisk -tdata $a }
 
-    Clear-Variable -Name prukazka, p_error, k_error, ErrorMessage, cdata, a 2>&1 | Out-Null
+    Clear-Variable -Name prukazka, c_error, ErrorMessage, cdata, a 2>&1 | Out-Null
 }
 
 FUNCTION fronta-rezervaci {
     Write-Host "`n> Fronta rezervací"
     $obj_rezervace=@()
 
-    if ( (Test-Path $f_xknihy) -AND (Test-Path $f_xlokace) ) {
-        Write-Host "@func fronta-rezervaci INFO: Načítají se soubory, čekejte prosím..."
-        $tab_xbiblio = Import-Csv -Path $f_xknihy -Delimiter ";"
-        $tab_xlokace = Import-Csv -Path $f_xlokace -Delimiter ";" -Header "Zkratka", "Popisek"
+    TRY {
+        $ErrorMessage="Zatím neznámá chyba." #Tohle vyteče jinde, když to bude třeba :)
+        $hdata= Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("${k_user}:${k_pass}")) } -URI "$k_uri/holds"
     }
-    else { [int]$r_error=1; $ErrorMessage="Nepodařilo se nalézt požadované soubory (x-lokace.csv anebo x-biblio_report-reportresults.csv)." }
+    CATCH {
+        [bool]$r_error=1
+        $ErrorMessage = $_.Exception.Message
+        Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
+    }
 
-    if ( $r_error -ne 1 ) {
-        TRY {
-                $ErrorMessage="Nedefinovaná chyba." #Tohle vyteče jinde, když to bude třeba :)
-                $hdata= Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("${k_user}:${k_pass}")) } -URI "$k_uri/holds"
-            }
-        CATCH {
-                [int]$r_error=1
-                $ErrorMessage = $_.Exception.Message
-                Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
-            }
+    if ( $f_fr_loaded -eq 1 ) {  } #tohle je ošklivé, ale vlastně správně...trust me #r/wcgw
+    elseif ( ( $hdata.count -ne 0 -AND $r_error -ne 1 ) -AND ( (Test-Path $f_xknihy) -AND (Test-Path $f_xlokace) ) ) {
+        Write-Host "@func fronta-rezervaci INFO: Načítají se soubory..."
+        $script:tab_xbiblio = Import-Csv -Path $f_xknihy -Delimiter ";"
+        $script:tab_xlokace = Import-Csv -Path $f_xlokace -Delimiter ";" -Header "Zkratka", "Popisek"
+        [bool]$script:f_fr_loaded = 1
     }
+    else { [bool]$r_error=1; $ErrorMessage="Nepodařilo se nalézt požadované soubory (x-lokace.csv anebo x-biblio_report-reportresults.csv)." }
 
     if ( $r_error -ne 1 ) {
         $tab_rezervace = @()
         [int]$r_pocet = $hdata.count
-        Write-Host "~ Celkem $r_pocet rezervací k vyřízení."
         [int]$i=1
 
-        Write-Host "`n@func fronta-rezervaci INFO: Zpracovávají se data, čekejte prosím..."
+        Write-Host "@func fronta-rezervaci INFO: Zpracovávají se data ($r_pocet rez.), čekejte prosím..."
+
         ForEach ($rezervace in $hdata) {
             $r_biblioID = $rezervace.biblio_id
             $r_patronID = $rezervace.patron_id
@@ -236,7 +236,8 @@ FUNCTION fronta-rezervaci {
 
     if ( $obj_rezervace.Count -ne 0 ) {
         Write-Host "`n`t`t`t~~ VÝPIS FRONTY REZERVACÍ ~~"
-        
+        $a="^XA ^CI28 ..." #hlavička
+
         ForEach ($rezervace in $obj_rezervace) {
             $id = $rezervace.or_ID
             $datum = $rezervace.or_Datum_Pozadavku
@@ -248,25 +249,17 @@ FUNCTION fronta-rezervaci {
             $bcode = $rezervace.or_Barcode
                         
             Write-Host "`n`n$id`:`tNázev:`t`t$kniha`n`tAutor:`t`t$autor`n`tSignatura:`t$sig`n`tLokace:`t`t$lokace`n`tKód:`t`t$bcode`n`tDatum:`t`t$datum`n`tČtenář:`t`t$ctenar"
+            $a="$a
+            ^FT^A0N,30,20^FO10,10^FD__data__: $kniha^FS
+            "
         }
+        
+        $a="$a ^XZ"
 
-        $volba = Read-Host -Prompt "`n~ Vytisknout frontu rezervací? [a,y,1 / n,0]"
-        if ($volba -eq "a" -OR $volba -eq "y" -OR $volba -eq "1") {
-            ForEach ($rezervace in $obj_rezervace) {
-                $id = $rezervace.or_ID
-                $datum = $rezervace.or_Datum_Pozadavku
-                $autor = $rezervace.or_Autor
-                $kniha = $rezervace.or_Nazev_Knihy
-                $sig = $rezervace.or_Signatura
-                $lokace = $rezervace.or_Lokace
-                $ctenar = $rezervace.or_Ctenar
-                $bcode = $rezervace.or_Barcode
-
-                $a = "^XA ... ^XZ"
-                tisk -tdata $a
-            }
-        }
+        $volba = Read-Host -Prompt "`n~ Vytisknout frontu rezervací? [ ANO = a,y,1 / NE = cokoliv jiného ]"
+        if ($volba -eq "a" -OR $volba -eq "y" -OR $volba -eq "1") { tisk -tdata $a }
     }
+    else { Write-Host "`n@func fronta-rezervaci INFO: Žádné dostupné rezervace." }
 }
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
@@ -294,6 +287,23 @@ FUNCTION vytvor-uctenku {
     # magický kód
     # typy: dítě / dospělý / kopírování / jiné placené služby?
 }
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+<#                       MOŽNÁ SE POUŽIJE
+FUNCTION MVS {
+    #TŘEBA TAKTO:
+    $a="
+    ^XA^LRY
+        ^CI28
+        ^FO120,10^GB160,100,100^FS
+        ^FO135,40^CFG^FDMVS^FS
+        ^LRN
+        ^FT^A0N,30,20^FO105,125^FDKnihovna na Křižovatce^FS
+    ^XZ"
+
+    tisk -tdata $a    
+}
+#>
 
 <#  TECH INFO
 1 mm = 8 Zebra dots 
