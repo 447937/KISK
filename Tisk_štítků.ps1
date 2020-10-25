@@ -24,20 +24,30 @@ $zebra="--tiskárna--"       # Nastavení výstupu
 $l_path="./x-printer.log"   # Umístění logu
 $f_xlokace="./x-lokace.csv" # CSV soubor obsahující zkratky a popisky lokací (fronta-rezervaci), oddělovačem je ";" -- jednou snad bude dostupné API
 $f_xknihy="./x-biblio_report-reportresults.csv" # CSV soubor s potřebnými daty o knihách -- jednou snad bude dostupné API
-# Ceny pro účtenky
-$cenik=@()
-$cenik+=[PSCustomObject]@{ id=0; nazev="Čtenářský poplatek: Dospělý";       cena=50}
-$cenik+=[PSCustomObject]@{ id=1; nazev="Čtenářský poplatek: Dítě";          cena=90}
-$cenik+=[PSCustomObject]@{ id=2; nazev="Barevný tisk/kopírování";           cena=5}
-$cenik+=[PSCustomObject]@{ id=3; nazev="Černobílý tisk/kopírování";         cena=2}
-
+$f_xcenik="./x-cenik.csv"   # CSV soubor ceníku (Formát: audit;interaktivita;nazev;cena;komentar).
+# Logo knihobny pro Zebru - kovertováno pomocí http://labelary.com/viewer.html
+$logo="^GFA,10500,10500,70,T03gV030600C3gN03hN0181,T03gV030601C3gN038hN0C3,38007M0E03gQ0701C018C0383T07K038L038gQ01FF8S0C6,3800EM0E03gQ0701C00D80303T078J03CL038gQ01IFS06C,3801CM0E03gQ0701C00F80703T078J07CL038gQ01IF8R07C,38038O03gQ07K0700E03T07CJ07CL038gQ01803CR038,38078O03gQ07N0C03T07CJ07CL038gQ01801C,380FP03gQ07P03T07EJ0FCL038gQ01801C,381EP03gQ07P03T07EJ0DCL038gQ01801C,381CP03gQ07L06I03T077I01DCL038gQ01800CR07C,38380020FC0040307CI03F8018003060F8I0FEL07008031E040307CI03F8K077I019C007F00387EI03F00183EI03F8J0CI0CI01801C030F0C1F8001FF,387I073FE00E031FFI0FFE038003063FE003FFL0701C033E0E031FFI0FFEK073I039C03FF8039FFI0FFC018FF800FFCJ0E001CI01801C033F0E7FC003C38,38EI0770F00E0338F801F0F81C0070671F007878K0701C03700E0338F801F0FK07380031C03C3C03B87801E1E019C7C01E1EJ06001CI018018033B0EE1E00701C,39CI07C0780E03E03C03C0381C00707C0700601CK0701C03600E036038038038J07180071C0300E03E03C0380701F01E01807J070018I01803803600F80F00E00E,3B8I0780380E03C01C07001C0C006078038I01CK0701C03C00E03C01C07001CJ071C0071CJ0E03C01C0700301E00EJ07J070038I0180F003C00F00700C006,3FJ0780180E03801C07I0E0E00E070038J0CK0701C03800E03801C06I0CJ071C00E1CJ0603C00C0700381C00EJ03J030038I01FFC003800F00301C007,3FJ07001C0E03800C0EI0E0E00C070018J0EK0701C03800E03801C0EI0EJ070E00E1CJ0603800E0600381C006J038I03803J01IF003800E00381C007,3B8I07001C0E03800C0EI060701C070018J0EK0701C03I0E03I0C0EI0EJ070E00C1CJ0703800E0E00181C007J038I03807J01C1F803800E003818003,3BCI07001C0E03800E0CI060701C060018I03EK0701C03I0E03I0C0CI06J070701C1CI01F03800E0E00181C007J0F8I01C06J01801C03I0E00381JF,39EI07001C0E03I0E0CI070301806001800FFEK0701C03I0E03I0C1CI06J07070181C007FF03800E0JFC18007003FF8I01C0EJ01800E03I0E00381JF,38FI07001C0E03I0E0CI070383806001803FFEK0701C03I0E03I0C1CI06J07038381C01IF03800E0JFC1800700IF8J0C0EJ01800E03I0E003818,3878007001C0E03I0E0CI07038300600180F80EK0701C03I0E03I0C1CI06J07038301C07C0703800E0EJ01800703E038J0E0CJ01800703I0E003818,3838007001C0E03I0E0CI07018300600181E00EK0701C03I0E03I0C1CI06J07018701C0F00703800E0EJ018007038038J0E1CJ01800703I0E003818,381C007001C0E03I0E0CI0601C700600181C00EK0701C03I0E03I0C0CI06J0701C601C0E00703800E0EJ018007070038J0618J01800703I0E00381C,380E007001C0E03I0E0EI0E01C600600181800EK0701C03I0E03I0C0EI0EJ0700CE01C0C00703800E0EJ018007070038J0718J01800703I0E00381C,380F007001C0E03I0E0EI0E00CE00600181801EK0701C03I0E03I0C0EI0EJ0700EE01C0C00F03800E0EJ018007060038J0338J01800603I0E00380C007,3807807001C0E03I0E07I0C00EC00600181801EK0E01C03I0E03I0C07001CJ07007C01C0C00F03800E07J018007060078J033K01800E03I0E00380E007,3803C07001C0E03I0E07801C006C00600181C03EK0E01C03I0E03I0C07001CJ07007C01C0E01F03800E078I0180070700F8J03BK01801E03I0E00380700E,3801E07001C0E03I0E03C038007C00600181C06EJ01C01C03I0E03I0C03C078J07007801C0E03703800E03C030180070781B8J01EK01807C03I0E003803C3C,3800F07001C0E03I0E01F9FI07800600180F9EEI03FC01C03I0E03I0C01F9FK07003801C07DE703800E01F9F01800703E7B8J01EK01IF803I0E003801FF8,3800787001C0E03I0E00FFEI038006001807F8EI03F801CK0E03I0C00FFEK07003001C03FC703800E00FFE01800701FE38J01EK01FFE003I0E0038007E,gG01FT01EK03CX01FV0FP01FO078,,::::::::::::::::::::::::gR018408O042K018S06,gS08818O066K018S0C,gS0D83P02CK018S08gK018,gS0702P038K018R018gK018,gU06W018R03,gU0CW018R02,hS018,:gO078011C001FI0F800FEK018I01FM03EK07CI0700F8001FI03CN03EI0F801F,gM013FE0130607F833FC018106003180C07FE0C0041FFJ01FF80CF03FCC07F80CFF0187FFC0FF003FE07F8,gM01603014060C00360603008300218180C070400C1818I0301C0D00602C0C0C0D838180018181806I0C0C,gM01C01818060C0038030200C3006183018010600CI08I0600C0E00C01CI060F018180018I0C0C001806,gM0180181806080038018600410061860300186008I0CI0C0060E00801CI060E00818003J0C18001002,gM01800810060C00300186006180418C03I082018I0CI0C0020C01800CI060C00C18006J0418003003,gM01I0C10060C00300184006180C19802I0C301J0CI080030C01I0CI020C00C1800CJ041I03003,gM01I0C100606003I087FFE08081B002I0C303I03CI080030C01I0C001E0C00C1800CI03C3I02003,gM01I0C100603803I086J0C181E002I0C183007FCI080030C01I0C03FE0C00C18018007FC3I03IF,gM01I0C100601E03I084J04181E006I0C18201E0C00180030C03I0C0F020C00C1803001E043I03,gM01I0C100600703I084J06101B002I0C0860300CI080030C01I0C18020C00C18060030043I02,gM01I0810060018300186J063019802I0C0C40600CI080030C01I0C10060C00C18060020043I02,gM01I081006I0C300186J022018C03I080C40600CI0C0020C01I0C30060C00C180C00600C1I03,gM0180181006I0C300102004036018603001804C0600CI0C0060C01801C30060C00C181800600C18003,gM0180101006I0C38030300C03601830180180680601CI060060C01801C300E0C00C183I0601C180018,gM0140301006I083C060181801C018181C0300380603CI0700C0C00C02C181A0C00C183I030140C001C02,gM0130E010060C38360C00FF001C0180C0E0E00380386CI038380C0070EC1C320C00C187I0386407060E0E,gM011F8J020FE033F8003CI080180603FC003001F8CJ0FF00C003F8C0FE20C00C18IFC1FC403FC03F8,gM01R03hI0C,gM01R03hI08,:gM01R03hH018,gM01R03hH03,gM01R03hH07,gM01R03h0E1E,gM01R03h03F8,,:::::::::::::::::gK0818gT0EgW060401C303,R0CR0C3007gR0CgW030C038183,R0CR063007S03FEU01CK07FEgI07I0E03180300C6gG01FEK06,R0CR076007S0IFU038K0IF8gH07001C01B80600CEgG07FFK0E,R0CR03C007R01E07U03L0IFEgH07003C00F00E006Cg01F078I01E,R0CR01C007R038J0CR06L0E01EgH07007800E00C0038g01C01CI01E,R0CV07R07K0CR0CL0E007gH0700FK0180038g01001CI03E,R0CV07R07K0CY0E007gH0701EgU0EI036,R0CV07R07K0CY0E007gH0701CgU0EI076,R0CR07E007R07K0CY0E007gH07038J0CgP0EI0E6,01F8I03FI0C1F8I03FI01FF807K07EK07J01EI0FCI01E00FCK0E007I03800FCI03FN0707I063CO0FO01F8N0EI0C6,E7FE001FFC00C7FE001FFC003C3C0700F01FF8J07J0IF03FF0073E03FFK0E00701CFC73FFI0FFEM070EI067C1C1IFE03F8007I0E07FEN0E001C6,EF1F003E3F00CF1F003E3E00701E0701E03C3CJ078I0IF07C78077E07C78J0E00601DFC778F003E1FM071CI06601C1IFC07FC007I0E0F8FN0C00386,FC0780780700FC0780700700700E0703C0301EJ03CJ0C00601C07C00E01CJ0E00E01D8076038078078L0738I06C01CI01C0FFE003001C0C038L01C00306,F80380E00380F00380E00380E00707078J0EJ01FJ0CJ01C07801C01CJ0E03C01F007C03807003CL0778I07801CI0380FFE003801CI038L01C00706,F001C0E001C0F001C0C00180C004070FK06K0FCI0CK0C07801C00EJ0IF001E007801C0E001CL07FJ07801CI0701FFE0838018I018L03800E06,E001C1C001C0E001C1C001C0CJ070EK06K03EI0CK0E07003800EJ0IF801E007801C0EI0CL07EJ07001CI0E01CFC081C038I01CL07001C06,EI0C1CI0C0EI0C1C001C1CJ071CK07K01F800CK0E070038006J0F1FE01C007001C1CI0EL077J07001CI0E01C30081C038I01CL0E001806,EI0E18I0C0EI0C18I0C1CJ0738K0FL07C00CJ01E070038006J0E00F01C007001C1CI0EL0778I06001C001C038I0C0C03J03CK03C003806,EI0E18I0E0EI0E38I0C1CJ077J07FFL01E00CI0FFE07003IFEJ0E00381C007001C1CI0EL073CI06001C0038038I040E07001FFCK078007006,EI0E18I0E0CI0E38I0C1CJ07EI01IFM0F00C003FFE07003IFEJ0E00381C007001C1CI0EL071EI06001C0070038I040E06007FFCK0EI0E006,EI0E18I0E0CI0C38I0C1CJ07FI07E07M0780C00FC0E070038M0E001C1C007001C1CI0EL070FI06001C0070038I04060E01F81CJ03C001C007,EI0E18I0E0CI0C38I0C1CJ077800F007M0380C00E00E07003N0E001C1C007001C1CI0EL0707I06001C00E0038I0C070E01C01CJ078001!EI0C18I0C0EI0C18I0C1CJ073C00E007M0380C01C00E070038M0E001C1C007001C1CI0EL07038006001C01C0038I0C070C03801CJ0FI01!E001C1C001C0E001C1C001C0CJ071E00C007M0380C01800E070038M0E001C1C007001C1CI0EL0701C006001C0180018I0C031C03001CJ0EM07,E001C1C001C0E001C1C001C0E007070F00C00FM0380C01800E070038M0E00381C007001C0EI0CL0700E006001C038001C001C039803003CI01CM06,F00180E00180F00381E003806006070700C00FM0380C01801E07001CM0E00381C007001C0E001CL0700F006001C07I01C0018019803003CI018M06,F00380E00380F00380E00380700E070380E01FM0700E01C03E07001CM0E00701C007001C0700380EJ07007806001C0EJ0E003801B803807CI038M06,F80700780700F807007007003C3C0701C0E037J0600F00E01C06E07I0E00CJ0E01F01C007001C0780780EJ07003C06001C0EJ07007001F00380DCI038M06,EF3E003E3E00CF3E003E3E001FF80700E078F7J07FFE00FB0F1EE07I07C7CJ0IFE01C007001C03F1F00CJ07001E06001C1IFE07E3EI0F001E3DCI03IFEJ06,E7FC001FFC00C7FC001FFCI07E00700703FC7J07FF8007F07FCE07I03FF8J0IF801C007001C00FFC00CJ07I0FJ01C3IFE01FFCI0EI0FF9CI03IFEJ06,E1FJ03EJ01FJ03ET0FM0FEI01E01FN0FCgG03F001CgH07EN03E,EjM018,:EjM038,EjM03,:E,:::^FS"
+# Import ceníku - při úpravách je nutné náležitě upravit funkci vytvor-uctenku (ten velkej ošklivej if)
+$cen_load = Import-Csv -Path $f_xcenik -Delimiter ";"       #trycatchovat
+[int]$ce_i=0; $cenik=@()
+ForEach ( $ce_polozka IN $cen_load ) {                      #trycatchovat
+    [int]$ce_audit = $ce_polozka.audit                      # Audit: 0=Netiskne se audit štítek pro KJM, 1=audit štítek se tiskne+záznam do auditlogu.
+    [int]$ce_interaktivita = $ce_polozka.interaktivita      # Interaktivita: 0=přidá se na účtenku bez dalších dotazů, 1=vyhrazeno pro čtenářské průkazky, 2=doptá se na množství/cenu, 3=umožňuje specifikovat název i cenu.
+    $ce_nazev = $ce_polozka.nazev
+    [int]$ce_cena = $ce_polozka.cena
+   
+    $cenik+=[PSCustomObject]@{ id=$ce_i; audit=$ce_audit; interaktivita=$ce_interaktivita; nazev=$ce_nazev; cena=$ce_cena }
+    $ce_i++ 
+}
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 Clear-Host
-Write-Host "`t`t`t>>> Zebrový tiskař štítků <<<"
+Write-Host "`t`t`t`t`t>>> Knihovnický udělátor 3000 <<<`n"
 
 FUNCTION Write-Menu {
-    Write-Host "`n> MENU"
+    if ( $Message2Menu -ne $null ) { Write-Host "$Message2Menu"; $Script:Message2Menu = $null }
+
+    Write-Host "> MENU"
     Write-Host "  0: Tisk čtenářské průkazky"
     Write-Host "  1: Dávkový tisk čárových kódů na průkazky"
     Write-Host "  2: Dávkový tisk čárových kódů na knihy"
@@ -60,19 +70,20 @@ FUNCTION Write-Menu {
             #adm { nastveni-zebry }
             d { probe-KOHA }
             q { pac-a-pusu }
-            #f { Fix-Menu } #
+            #f { Fix-Menu } #opraví chybějící soubory lokace, bibliotems...
         }
-    Write-Menu # Zachycení neplatné volby a taky doběhlé funkce...nechť rekurze vládne světu
+    Clear-Host; Write-Menu # Zachycení neplatné volby a taky doběhlé funkce...nechť rekurze vládne světu
 }
 
 FUNCTION tisk ($tdata) {
     if ( $tdata -ne $null ) {
         Write-Host "`n@func tisk INFO: Data se odesílají do tiskárny..."
-        Write-Output $tdata #>> $kam #> $pf  NEBO přímo ROZHRANÍ USBfň?
+        # Write-Output $tdata #>> $kam #> $pf  NEBO přímo ROZHRANÍ USBfň?
+        $Script:Message2Menu+= $tdata       #tohle smazat nebo zneškodnit při přesunu do produkce
         # Out-Printer -InputObject $tdata -Name $zebra
         Clear-Variable -Name tdata
     }
-    else { Write-Host "`n@func tisk ERROR: Žádná data k tisku."}
+    else { $Script:Message2Menu+="@func tisk ERROR: Žádná data k tisku."}
 }
 
 FUNCTION pac-a-pusu {
@@ -91,7 +102,7 @@ FUNCTION Get-Ctenar ($metoda) { #id=dle ID čtenáře; bcode=dle čárového kd�
             CATCH {
                 [bool]$c_error=1
                 $ErrorMessage = $_.Exception.Message
-                Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
+                $Script:Message2Menu+="`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n@func Get-Ctenar $ErrorMessage`n"
                 $Script:ErrorMessage="Došlo k zadání nečíselné hodnoty."
             }
 
@@ -103,7 +114,7 @@ FUNCTION Get-Ctenar ($metoda) { #id=dle ID čtenáře; bcode=dle čárového kd�
                 CATCH {
                     [bool]$c_error=1
                     $ErrorMessage = $_.Exception.Message
-                    Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
+                    $Script:Message2Menu+="`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n@func Get-Ctenar $ErrorMessage`n"
                     $Script:ErrorMessage = "Chyba komunikace se serverem."
                 }
             }
@@ -116,7 +127,7 @@ FUNCTION Get-Ctenar ($metoda) { #id=dle ID čtenáře; bcode=dle čárového kd�
             CATCH {
                 [bool]$c_error=1
                 $ErrorMessage = $_.Exception.Message
-                Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
+                $Script:Message2Menu+="`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n@func Get-Ctenar $ErrorMessage`n"
                 $Script:ErrorMessage = "Chyba komunikace se serverem."
             }
         }
@@ -136,7 +147,7 @@ FUNCTION vytvor-barcode ( $b_typ, [long]$bdata ) { #k = knihy; p = průkazky
         CATCH {
             [bool]$b_error = 1
             $ErrorMessage = $_.Exception.Message
-            Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
+            $Script:Message2Menu+="`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n@func vytvor-barcode $ErrorMessage"
         }
     }
 
@@ -162,10 +173,10 @@ FUNCTION vytvor-barcode ( $b_typ, [long]$bdata ) { #k = knihy; p = průkazky
             $a= "$a ^XA ^CI28 $b_fill^FD$kod^FS ^FT^A0N,30,20^FO105,125^FDKnihovna na Křižovatce^FS ^XZ `n"
             $i++ ; $kod++
         } while ( $i -lt $kolik -AND $i -lt $i_max ) 
-        if ( $i -ge $i_max ) { Write-Host "`n@func vytvor-barcode INFO: Překročen maximální počet tisknutelných štítků (nyní $i_max štítků v dávce)." }
+        if ( $i -ge $i_max ) { $Script:Message2Menu+="@func vytvor-barcode INFO: Překročen maximální počet tisknutelných štítků (nyní $i_max štítků v dávce)." }
         tisk -tdata $a
     }
-    elseif ( $e_mess -eq 1 ) { Write-Host "`n@func vytvor-barcode ERROR: Chybně zadané hodnoty pro čárový kód anebo množství." }
+    elseif ( $e_mess -eq 1 ) { $Script:Message2Menu+="@func vytvor-barcode ERROR: Chybně zadané hodnoty pro čárový kód anebo množství." }
 
     Clear-Variable -Name bdata, b_error, i, kolik, kod 2>&1 | Out-Null
 }
@@ -184,7 +195,7 @@ FUNCTION tisk-ctenare {
         [string]$c_psc      = $cdata.postal_code
     }
 
-    if ( $c_error -eq 1 -OR ( $cdata.count -ne 1 -OR $prukazka -eq "" ) ) { Write-Host "`n@func tisk-ctenare ERROR: $ErrorMessage" }
+    if ( $c_error -eq 1 -OR ( $cdata.count -ne 1 -OR $prukazka -eq "" ) ) { $Script:Message2Menu+="@func tisk-ctenare ERROR: $ErrorMessage`n" }
     elseif ( $cdata.category_id -eq "D" -AND $c_error -ne 1 ) { 
         $a="
         ^XA
@@ -211,14 +222,15 @@ FUNCTION tisk-ctenare {
             ^FT^A0N,30,23^FO85,120^FD$c_mesto $c_psc^FS
         ^XZ"
     }
-    else { Write-Host "`n@func tisk-ctenare ERROR: Nedefinovaná chyba...dejte vědět jak se to stalo. :) " } #Tohle asi nikdy nenastane, ale kdyby náhodou...
+    else { $Script:Message2Menu+="`n@func tisk-ctenare ERROR: Nedefinovaná chyba...dejte vědět jak se to stalo. :) " } #Tohle asi nikdy nenastane, ale kdyby náhodou...
 
     if ( $a -ne $null ) { tisk -tdata $a }
 
     Clear-Variable -Name prukazka, c_error, ErrorMessage, cdata, a 2>&1 | Out-Null
 }
 
-FUNCTION fronta-rezervaci {
+FUNCTION fronta-rezervaci {         # UPDATE-ME
+# porovnání dat: https://stackoverflow.com/questions/5097125/powershell-comparing-dates --pro vyřazení již vytisknutých rezervací
     Write-Host "`n> Fronta rezervací"
     
     if ( $script:obj_rezervace -ne $null ) {
@@ -229,11 +241,11 @@ FUNCTION fronta-rezervaci {
         {
             0 { generuj-frontu-rezervaci -operace 0 ; [bool]$no_do=1 }
             1 { generuj-frontu-rezervaci -operace 1 ; [bool]$no_do=1 }
-            2 { $script:obj_rezervace=@() ; stahni-frontu-rezervaci }
-            Default { [bool]$no_do=1 ; Write-Host "@func fronta-rezervaci ERROR: Neplatná volba." }
+            2 { $script:obj_rezervace=@() ; Get-FrontaRezervaci }
+            Default { [bool]$no_do=1 ; $Script:Message2Menu+="@func fronta-rezervaci ERROR: Neplatná volba operace (zobrazení/tisk/regenerace)." }
         }
     }
-    else { $script:obj_rezervace=@() ; stahni-frontu-rezervaci }
+    else { $script:obj_rezervace=@() ; Get-FrontaRezervaci }
 
     if ( $f_fr_loaded -eq 1 -OR $r_error -eq 1 ) {} #tohle je ošklivé, ale vlastně správně...trust me #r/wcgw
     elseif ( ( $hdata.count -ne 0 -AND $r_error -ne 1 ) -AND ( (Test-Path $f_xknihy) -AND (Test-Path $f_xlokace) ) ) {
@@ -255,12 +267,12 @@ FUNCTION fronta-rezervaci {
             $r_patronID = $rezervace.patron_id
                         
             Get-Ctenar -metoda ID
-            if ( $cdata.count -eq 1 -AND $c_error -ne 1 ) {
-                [string]$c_jmeno = $cdata.firstname
-                [string]$c_prijmeni = $cdata.surname
-            }
-
+            
             $pom = $tab_xbiblio.Where({$_.biblionumber -eq ( $rezervace.biblio_id )}) | Select author, title, itemcallnumber, barcode, permanent_location
+            if ( $pom.permanent_location -eq "" ) { $pom.permanent_location = "Asi výměnný fond | 80" }
+            else { TRY { $pom.permanent_location = $tab_xlokace.Where({$_.Zkratka -eq ( $pom.permanent_location )}) | Select-Object Popisek -ExpandProperty Popisek }
+                   CATCH { $Script:Message2Menu+="ERROR: Chybějící lokace/data pro jednotku: "; [bool]$warn_me=1 }
+                 }
 
             $script:obj_rezervace+=[PSCustomObject]@{
                 or_ID               = $i;
@@ -268,11 +280,13 @@ FUNCTION fronta-rezervaci {
                 or_Autor            = $pom.author;
                 or_Nazev_Knihy      = $pom.title;
                 or_Signatura        = $pom.itemcallnumber;
-                or_Lokace           = $tab_xlokace.Where({$_.Zkratka -eq ( $pom.permanent_location )}) | Select-Object Popisek -ExpandProperty Popisek;
-                or_Ctenar           = "$c_jmeno $c_prijmeni";
+                or_Lokace           = $pom.permanent_location;
+                or_Ctenar           = "$($cdata.firstname) $($cdata.surname)";
                 or_Barcode          = $pom.barcode
             }
             
+            if ( $warn_me -eq 1 ) { $Script:Message2Menu+="s ID rezervace $i.`n"; $warn_me=0 }
+
             [int]$r_progress = $(100*$i/$r_pocet)
             Write-Progress -Activity "Parsují se data" -Status "$r_progress% Hotovo" -PercentComplete $r_progress
             $i++
@@ -280,20 +294,20 @@ FUNCTION fronta-rezervaci {
         $script:vygenerovano=Get-Date -Format "dd/MM/yyyy HH:mm"
     }
     elseif ( $no_do -eq 1 ) {}
-    else { Write-Host "`n@func fronta-rezervaci ERROR: $ErrorMessage" }
+    else { $Script:Message2Menu+="@func fronta-rezervaci ERROR: $ErrorMessage`n" }
 
     if ( $script:obj_rezervace.Count -ne 0 -AND $no_do -ne 1 ) { generuj-frontu-rezervaci -operace 0 }
     elseif ( $no_do -eq 1 ) {}
-    else { Write-Host "`n@func fronta-rezervaci INFO: Žádné dostupné rezervace." }
+    else { $Script:Message2Menu+="@func fronta-rezervaci INFO: Žádné dostupné rezervace.`n" }
 }
 
-FUNCTION generuj-frontu-rezervaci ($operace) {
+FUNCTION generuj-frontu-rezervaci ($operace) {  # 0 = Zobrazí a nabídne tisk; 1/* Pošle rovnou na tiskárnu
     Write-Host "`n`t`t`t~~ VÝPIS FRONTY REZERVACÍ ~~"
     $vygenerovano=Get-Date -Format "dd/MM/yyyy HH:mm"
     [int]$line = 170 # vertikální pozice čáry v hlavičce
     $a="^CF0,60 ^FO60,80^FDFRONTA REZERVACÍ^FS ^CF0,30 ^FO65,140^FDVygenerováno:^FS ^FO58,$line^GB490,1,2^FS" #hlavička...teda, aspoň její část. Zbytek je dole.
 
-    ForEach ($rezervace in $obj_rezervace) {
+    ForEach ($rezervace IN $obj_rezervace) {
         $id     = $rezervace.or_ID
         $datum  = $rezervace.or_Datum_Pozadavku
         $autor  = $rezervace.or_Autor
@@ -328,7 +342,7 @@ FUNCTION generuj-frontu-rezervaci ($operace) {
     
     $a="^XA ^CI28 ^LL$line ^CFA,30 ^FO255,140^FD$vygenerovano^FS $a ^XZ"
 
-    if ( $operace -eq 0) { 
+    if ( $operace -eq 0 ) { 
         Write-Host $b
         $volba = Read-Host -Prompt "`n~ Vytisknout frontu rezervací? [ ANO = a,y,1 / NE = cokoliv jiného ]"
         if ($volba -eq "a" -OR $volba -eq "y" -OR $volba -eq "1") { tisk -tdata $a }
@@ -336,7 +350,7 @@ FUNCTION generuj-frontu-rezervaci ($operace) {
     else { tisk -tdata $a }
 }
 
-FUNCTION stahni-frontu-rezervaci {
+FUNCTION Get-FrontaRezervaci {
     TRY {
         $ErrorMessage="Chyba spojení se serverem!"
         $Script:hdata= Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("${k_user}:${k_pass}")) } -URI "$k_uri/holds"
@@ -344,7 +358,7 @@ FUNCTION stahni-frontu-rezervaci {
     CATCH {
         [bool]$Script:r_error=1
         $Script:ErrorMessage = $_.Exception.Message
-        Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n$ErrorMessage"
+        Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n@func Get-FrontaRezervaci $ErrorMessage`n"
     }
 }
 
@@ -364,60 +378,104 @@ FUNCTION Get-StringHash {       # vytvoření hashe účtenky (čas+cena?...a ko
     $algorithm.ComputeHash($bytes) | 
     ForEach-Object { 
         $null = $StringBuilder.Append($_.ToString("x2")) 
-    } 
-  
+    }
     $StringBuilder.ToString() 
 }
 
 FUNCTION vytvor-uctenku {
     # typy: dítě / dospělý / kopírování / jiné placené služby?
-    Write-Host "`n> Tisk účtenek"
+    Clear-Host
+    Write-Host "> Tisk účtenek"
     $obj_uctenka=@()
     [bool]$u_complete=0
     [int]$u_suma=0
+    $u_ShowError=""
 
     WHILE ( $u_complete -ne 1 )
     {
-        Write-Host "- Přidat položku:"
+        if ( $u_ShowError -ne "" ) { Write-Host "$u_ShowError"; $u_ShowError="" }
+        if ( $obj_uctenka.Count -ge 1 ) { generuj-uctenku -operace 1 }
+        Write-Host "`n+ Přidat položku:"
         ForEach ( $polozka IN $cenik ) { Write-Host "  $($polozka.id): $($polozka.nazev)" }
-        Write-Host "`n  E: Opustit a zrušit aktuální účtenku"
-        $volba = Read-Host -Prompt "~ Volba"
-        $pom = $cenik.Where({$_.id -eq $volba})
+        Write-Host "`n  P: Tisknout účtenku`t`t`tE: Opustit a zrušit aktuální účtenku"
+        $volba = Read-Host -Prompt "`n~ Volba"
 
-        SWITCH -regex ( $volba )
-        {
-            '[01]' {
-                        Get-Ctenar -metoda bcode
-                        if ( $cdata.count -eq 1 -AND $c_error -ne 1 ) {
-                            [string]$c_jmeno    = $cdata.firstname
-                            [string]$c_prijmeni = $cdata.surname
-                            [string]$c_typ      = $cdata.category_id
-                        }
-                        else { Write-Host "@func fronta-rezervaci ERROR: Problém s identifikací čtenáře.`n Doplňující informace: $ErrorMessage`n"}
+        if ( $volba -IN 0..8 -OR $volba -eq "e" -OR $volba -eq "p" ) {
 
-                        SWITCH ( $volba ) {  0  { $u_cvybran = "DOSPĚLÝ" } ;  1   { $u_cvybran = "DÍTĚ" } }
-                        SWITCH ( $c_typ ) { "D" { $u_csystem = "DÍTĚ" } ; Default { $u_csystem = $c_typ } }
+            $pom = $cenik.Where({$_.id -eq $volba})
 
-                        if ( $c_error -ne 1 -AND (($volba -eq 1 -AND $c_typ -ne "D") -OR ($volba -eq 0 -AND $c_typ -eq "D")) ) {
-                            Write-Host "@func fronta-rezervaci INFO: Vybraný typ čtenáře se neshoduje s údaji v systému! Co teď?`n  0: Pokračovat s typem vybraným typem čtenáře ($u_cvybran)`n  1: Pokračovat s typem čtenáře podle systému ($u_csystem)"
-                            $volba = Read-Host -Prompt "~ Volba"
-                        }
-                        
+            if ( $volba -eq "e" ) { [bool]$u_complete=1 ; [bool]$no_do=1 } elseif ( $volba -eq "p" ) { [bool]$u_complete=1 }
+            elseif ( $volba -le 1 ) { # Registrační poplatky
+                Get-Ctenar -metoda bcode
+                if ( $cdata.count -eq 1 -AND $c_error -ne 1 ) {
+                    [string]$c_jmeno    = $cdata.firstname
+                    [string]$c_prijmeni = $cdata.surname
+                    [string]$c_typ      = $cdata.category_id
+                    [int]$c_bcode       = $cdata.cardnumber
+                } else { $u_ShowError = "@func vytvor-uctenku ERROR: Problém s identifikací čtenáře.`n Doplňující informace: $ErrorMessage`n"}
+                SWITCH ( $volba ) {  0  { $u_cvybran = "DOSPĚLÝ" } ;  1   { $u_cvybran = "DÍTĚ" } }
+                SWITCH ( $c_typ ) { "D" { $u_csystem = "DÍTĚ" } ; Default { $u_csystem = $c_typ } }
 
+                if ( $c_error -ne 1 -AND (($volba -eq 1 -AND $c_typ -ne "D") -OR ($volba -eq 0 -AND $c_typ -eq "D")) ) {
+                    [bool]$choose_incomplete=1
+                    WHILE ( $choose_incomplete -ne 0 ) {
+                        Write-Host "@func vytvor-uctenku INFO: Vybraný typ čtenáře se neshoduje s údaji v systému! Co teď?`n  0: Pokračovat s vybraným typem čtenáře ($u_cvybran)`n  1: Pokračovat s typem čtenáře podle systému ($u_csystem)"
+                        $volba = Read-Host -Prompt "`n~ Volba"
+
+                        if ( $volba -eq 0 ) { $obj_uctenka+=[PSCustomObject]@{ audit="$($pom.audit)"; text="$($pom.nazev) ($c_bcode)"; cena=$($pom.cena)} ; $choose_incomplete=0 }
+                        elseif ( $volba -eq 1 ) { Write-Host "Ošetření změny"; $choose_incomplete=0 }
+                        else { Write-Host "@func vytvor-uctenku INFO: Vyberte jednu z možností, jinak nelze pokračovat."; $choose_incomplete=1 }
                     }
-            2   {
-                    [int]$tisk_barevne_pocet = Read-Host -Prompt "`n~ Počet barevně tiskutých stran"        #trycatchovat
-                    $obj_uctenka+=[PSCustomObject]@{ polozka="$($pom.nazev) ($($tisk_barevne_pocet)x)"; cena=$($pom.cena*$tisk_barevne_pocet)}
                 }
-            3   {
-                    [int]$tisk_cernobile_pocet = Read-Host -Prompt "`n~ Počet černobíle tiskutých stran"        #trycatchovat
-                    $obj_uctenka+=[PSCustomObject]@{ polozka="$($pom.nazev) ($($tisk_cernobile_pocet)x)"; cena=$($pom.cena*$tisk_cernobile_pocet)}
-            '[4-9]+' { 
-                        Write-Host "$($pom.id) má popisek $($pom.nazev)"
-                     }
-            e { [bool]$u_complete=1 ; [bool]$no_do=1 }
-            Default { Write-Host "@func fronta-rezervaci ERROR: Neplatná volba, opakujte zadání.`n" }
+                elseif ( $c_error -ne 1 ) { $obj_uctenka+=[PSCustomObject]@{ audit="$($pom.audit)"; text="$($pom.nazev) ($c_bcode)"; cena=$($pom.cena)} } #tohle bude chtít doladit (podmínky)
+             }
+            elseif ( $volba -le 3 ) { # tisk/kopírování
+                [int]$pocet_stran = Read-Host -Prompt "`n++ $($pom.nazev)`n~ Zadejte počet stran"
+                $obj_uctenka+=[PSCustomObject]@{ audit="$($pom.audit)"; text="$($pom.nazev) ($($pocet_stran)x)"; cena=$($pom.cena*$pocet_stran)}
+            }
+            elseif ( $volba -le 5 ) { # Poškození majetku
+                [int]$uc_cena = Read-Host -Prompt "`n++ $($pom.nazev)`n!! V případě poškození majetku KJM je minimální cena 50 Kč.`n~ Škoda na majetku (Kč)"
+                $obj_uctenka+=[PSCustomObject]@{ audit="$($pom.audit)"; text="$($pom.nazev)"; cena=$uc_cena }
+            }
+            elseif ( $volba -le 7 ) { $obj_uctenka+=[PSCustomObject]@{ audit="$($pom.audit)"; text="$($pom.nazev)"; cena=$($pom.cena)} } #MVS a rešerše
+            elseif ( $volba -eq 8 ) { # Naprostá volnost pro knihovníka, neauditováno
+                $uc_nazev = Read-Host -Prompt "`n~ Zadejte vlastní název položky"
+                [int]$uc_cena = Read-Host -Prompt "~ Cena (Kč)"
+                $obj_uctenka+=[PSCustomObject]@{ audit="0"; text="$uc_nazev"; cena=$uc_cena }
+            }
+            #else { Clear-Host; $u_ShowError="@func xx vytvor-uctenku ERROR: Neplatná volba ($volba), opakujte zadání." }
         }
+        else { Clear-Host; $u_ShowError="@func vytvor-uctenku ERROR: Neplatná volba ($volba), opakujte zadání." }
+        Clear-Host
+    }
+    if ( $no_do -ne 1 -AND $obj_uctenka.Count -ge 1 ) { generuj-uctenku -operace 0 }
+    elseif ( $no_do -eq 1 ) { $Script:Message2Menu+="@func fronta-rezervaci INFO: Účtenka zneplatněna.`n" } #Klamstvo! Ke zneplatnění ve skutečnosti dojde až při opětovném vstupu do této funkce.
+}
+
+FUNCTION generuj-uctenku ($operace) {
+    $vygenerovano=Get-Date -Format "dd/MM/yyyy HH:mm"
+    [int]$suma=0
+    [int]$vyska=250  # Výchozí vertikální poloha textu
+    $a="^CFA,20 ^FO20,$vyska ^FDKontakt:+420 123456789; nakrizovatce@gmail.com^FS ^CF0,28" ; $vyska += 10 #ošklivý fígl
+    $hash= Get-StringHash "$obj_uctenka $vygenerovano"
+
+    ForEach ($polozka IN $obj_uctenka) {
+        $suma += $polozka.cena
+        $vyska += 40
+
+        $a="$a ^FO30,$vyska^FD$($polozka.text)^FS ^FO500,$vyska^FD$($polozka.cena)^FS"
+        $b="$b  $($polozka.cena)`t$($polozka.text)`n"
+    }
+    
+    $vyska += 60
+    [int]$row1 = 60 + $vyska
+    [int]$row2 = 30 + $row1
+
+    $a="^XA ^CI28 ^LL$delka ^FO20,80$logo $a ^CF0,30 ^FO,$vyska ^FB600,,,C, ^FDCelkem: $suma Kč^FS ^CFA,20 ^FO20,$row1 ^FDVystaveno: $vygenerovano^FS ^FO20,$row2 ^FDID: $hash^FS ^XZ"
+
+    SWITCH ( $operace ) {
+        0   { tisk -tdata $a }  #přidat výstup do auditlogu $c
+        1   { Write-Host "`n  Cena`tPoložka`n  ----`t-------`n$b`n  Celkem k úhradě: $suma Kč" }
     }
 }
 
@@ -501,8 +559,10 @@ FUNCTION probe-KOHA {
     Write-Host " ~ Dojde k pokusu o stažení dat pro patron_id = 2 (--jmeno--)"; pause
     Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("${k_user}:${k_pass}")) } -URI $k_uri/2
     Write-Host "`n ~ Dojde k pokusu o stažení dat pro cardnumber = 26000138 (--jmeno2--)"; pause
-    Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("${k_user}:${k_pass}")) } -URI "$k_uri`?cardnumber=26000138"
-    Write-Host "`t`t~~ KONEC DIAGNOSTIKY ~~"
+    Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("${k_user}:${k_pass}")) } -URI "$k_uri/patrons`?cardnumber=26000138"
+    Write-Host "~ Vypíše se ceník"; pause; $cenik
+    Write-Host "~ Vypíše se zdrojový objekt ceníku: cen_load"; pause; $cen_load
+    Write-Host "`t`t~~ KONEC DIAGNOSTIKY ~~"; pause
 }
 
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
