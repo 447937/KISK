@@ -1,0 +1,9 @@
+audit;DMC_text;nazev;cena;komentar
+1;Ctenarsky poplatek;Čtenářský poplatek;0;Cena se bere z KOHA
+0;Cernobily tisk/kopirovani;Černobílý tisk/kopírování;2;
+0;Barevny tisk/kopirovani;Barevný tisk/kopírování;10;
+1;Poskozeni knihy/majeteku KJM;Poškození knihy/majeteku KJM;50;Cenu určuje knihovník (min 50 Kč).
+0;Poskozeni majetku (X/KISK);Poškození majetku (X/KISK);0;Cenu určuje knihovník.
+1;Meziknihovni vypujcni služba;Meziknihovní výpůjční služba;10;
+1;Reserse;Rešerše;200;
+0;Ostatni (Vlastni popis a cena);Ostatní (Vlastní popis a cena);0;Cenu a název položky určuje knihovník.
