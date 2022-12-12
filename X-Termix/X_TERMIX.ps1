@@ -20,7 +20,7 @@ powershell -ExecutionPolicy Bypass -Command "& '%~d0%~p0%~n0.ps1'"
 # Je nutné mít správně nastavenou tiskárnu ve Windows, tak aby brala surová data.
 #>
 
-TRY { $conf = Get-Content -Raw "./config.json" -ErrorAction Stop | ConvertFrom-Json -AsHashtable -ErrorAction Stop }
+TRY { $conf = Get-Content -Raw "./config.json" -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
 CATCH { Write-Host "@init ERROR: Chyba při zpracování konfiguračního souboru config.json!`n - Vetšina funkcí bude omezena!`n > $($_.Exception.Message)" -BackgroundColor Red -ForegroundColor White ; pause }
 
 $f_log      = "./x-error_log.txt"       # Log pro zaznamenání errorů; ~ to co se vypíše před menu
@@ -70,7 +70,7 @@ FUNCTION Write-Menu {
             2 { vytvor-barcode -b_typ p }
             3 { vytvor-barcode -b_typ k }
             4 { tisk-MVS }
-            5 { tisk-ctenare; pause }
+            5 { tisk-ctenare }
             d { probe-KOHA }
             q { pac-a-pusu }
             x { Set-Xprinter }
@@ -152,7 +152,7 @@ FUNCTION Get-Ctenar ($metoda, $param) { #id=dle ID čtenáře; bcode=dle čárov
             if ( $c_error -ne 1 -AND $prukazka -ne "" ) {
                 TRY {
                     $Script:ErrorMessage="Zadaná hodnota NEodpovídá právě jednomu čtenáři. ($prukazka)" #Tohle vyteče jinde, když to bude třeba :)
-                    $ctenar= Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("$($conf.auth.user):$($conf.auth.password)")) } -URI "$($conf.uri.api)/patrons`?cardnumber=$prukazka"
+                    [Array]$ctenar= Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("$($conf.auth.user):$($conf.auth.password)")) } -URI "$($conf.uri.api)/patrons`?cardnumber=$prukazka"
                     RETURN $ctenar
                     }
                 CATCH {
@@ -167,7 +167,7 @@ FUNCTION Get-Ctenar ($metoda, $param) { #id=dle ID čtenáře; bcode=dle čárov
         id { 
             TRY {
                 $Script:ErrorMessage="ID čtenáře neexistuje." #Tohle vyteče jinde, když to bude třeba :)
-                $ctenar = Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("$($conf.auth.user):$($conf.auth.password)")) } -URI "$($conf.uri.api)/patrons/$param"
+                [Array]$ctenar = Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("$($conf.auth.user):$($conf.auth.password)")) } -URI "$($conf.uri.api)/patrons/$param"
                 RETURN $ctenar
                 }
             CATCH {
@@ -252,9 +252,10 @@ FUNCTION tisk-ctenare {
 
     Write-Host "`n> Tisk čtenářské průkazky"
 
-    $ctenar = Get-Ctenar -metoda bcode
+    [Array]$ctenar = Get-Ctenar -metoda bcode
+
     if ( $ctenar.count -eq 1 -AND $c_error -ne 1 ) {
-        [int]$c_prukazka    = $ctenar.cardnumber
+        [int]$c_prukazka    = $($ctenar.cardnumber)
         [string]$c_jmeno    = $ctenar.firstname
         [string]$c_prijmeni = $ctenar.surname
         $ctenar_rok         = $ctenar.date_of_birth -split '-'; [string]$c_rok = $ctenar_rok[0]
@@ -298,7 +299,7 @@ FUNCTION Fronta-Rezervaci {
     $rezervace = Get-FrontaRezervaci
     $i = 0; $r_pocet = $rezervace.Count
     if ($r_pocet -eq 0) { $Script:Message2Menu+="@fronta-rezervaci INFO: Nebyly nalezeny žádné existující rezervace.`n"; RETURN $null }
-    Write-Host "`n> Fronta rezervací NEW UwU"
+    Write-Host "`n> Fronta rezervací"
     Write-Host "@NEW-fronta-rezervaci INFO: Zpracovávají se data ($r_pocet rez.), čekejte prosím..."
 
     Write-Host "`n`t~~ VÝPIS FRONTY REZERVACÍ ~~"
@@ -457,7 +458,7 @@ FUNCTION vytvor-uctenku {
 
                 if ( $volba -eq "e" ) { [bool]$u_complete=1 ; [bool]$no_do=1 } elseif ( $volba -eq "p" ) { [bool]$u_complete=1 }
                 elseif ( $volba -eq 0 ) { # Registrační poplatky
-                    $ctenar = Get-Ctenar -metoda bcode
+                    [Array]$ctenar = Get-Ctenar -metoda bcode
                     if ( $ctenar.count -eq 1 -AND $c_error -ne 1 ) {
                         [string]$c_typ      = $ctenar.category_id
                         [string]$c_bcode    = $ctenar.cardnumber
