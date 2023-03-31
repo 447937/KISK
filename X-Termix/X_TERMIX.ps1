@@ -19,12 +19,15 @@ powershell -ExecutionPolicy Bypass -Command "& '%~d0%~p0%~n0.ps1'"
 # Logo knihobny pro Zebru - kovertováno pomocí http://labelary.com/viewer.html
 # Je nutné mít správně nastavenou tiskárnu ve Windows, tak aby brala surová data.
 #>
+#Clear-Host
+#$host.UI.RawUI.WindowSize = New-Object System.Management.Automation.Host.size(110,30)
+$host.UI.RawUI.WindowTitle = "> X TERMIX <"
 
 TRY { $conf = Get-Content -Raw "./config.json" -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
 CATCH { Write-Host "@init ERROR: Chyba při zpracování konfiguračního souboru config.json!`n - Vetšina funkcí bude omezena!`n > $($_.Exception.Message)" -BackgroundColor Red -ForegroundColor White ; pause }
 
-$f_log      = "./x-error_log.txt"       # Log pro zaznamenání errorů; ~ to co se vypíše před menu
-$t_file     = "./temp_print_file.txt"   # Protože RAW data, UTF8 a Out-Printer se dohromady nebaví :/
+$f_log = "./x-error_log.txt"       # Log pro zaznamenání errorů; ~ to co se vypíše před menu
+$f_tmp = "./temp_print_file.txt"   # Protože RAW data, UTF8 a Out-Printer se dohromady nebaví :/
 
 # Import ceníku - při úpravách je nutné náležitě upravit funkci vytvor-uctenku (ten velkej ošklivej if skoro dole)
 if ( Test-Path $($conf.files.cenik) ) {
@@ -84,9 +87,9 @@ FUNCTION Write-Menu {
 FUNCTION tisk ($tdata) {        #add testpath nebo trycatch na tiskarnu
     if ( $null -ne $tdata ) {
         Write-Host "`n@tisk INFO: Tisková data se zpracovávají a odesílají do tiskárny..."
-        $tdata | Out-File $t_file -Encoding UTF8
+        $tdata | Out-File $f_tmp -Encoding UTF8
         cmd /C 'COPY /B .\temp_print_file.txt \\localhost\Zebra'  # Hello darkness, my old friend...I've come to talk with you again.
-        # ZKUSIT TOHLE # Start-Process -FilePath "cmd" -ArgumentList "COPY /B $t_file $($conf.printer)"
+        # ZKUSIT TOHLE # Start-Process -FilePath "cmd" -ArgumentList "COPY /B $f_tmp $($conf.printer)"
         Clear-Variable -Name tdata
     }
     else { $Script:Message2Menu+="@tisk ERROR: Žádná data k tisku.`n"}
@@ -663,5 +666,4 @@ FUNCTION probe-KOHA {
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 #                            LET'S BEGIN, SHALL WE?                            #
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
-$host.UI.RawUI.WindowTitle = "> X TERMIX <"
 Write-Menu
