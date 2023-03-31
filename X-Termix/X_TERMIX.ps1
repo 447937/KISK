@@ -1,4 +1,5 @@
-﻿<# 
+﻿$release = "2023-03-31"
+<# 
 Tiskař štítků pro Zebru na Křižovatce
 Verze ze dne: 12.12.2022
 Knihovna na Křižovatce
@@ -19,15 +20,12 @@ powershell -ExecutionPolicy Bypass -Command "& '%~d0%~p0%~n0.ps1'"
 # Logo knihobny pro Zebru - kovertováno pomocí http://labelary.com/viewer.html
 # Je nutné mít správně nastavenou tiskárnu ve Windows, tak aby brala surová data.
 #>
-#Clear-Host
-#$host.UI.RawUI.WindowSize = New-Object System.Management.Automation.Host.size(110,30)
-$host.UI.RawUI.WindowTitle = "> X TERMIX <"
 
 TRY { $conf = Get-Content -Raw "./config.json" -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
 CATCH { Write-Host "@init ERROR: Chyba při zpracování konfiguračního souboru config.json!`n - Vetšina funkcí bude omezena!`n > $($_.Exception.Message)" -BackgroundColor Red -ForegroundColor White ; pause }
 
-$f_log = "./x-error_log.txt"       # Log pro zaznamenání errorů; ~ to co se vypíše před menu
-$f_tmp = "./temp_print_file.txt"   # Protože RAW data, UTF8 a Out-Printer se dohromady nebaví :/
+$f_log      = "./x-error_log.txt"       # Log pro zaznamenání errorů; ~ to co se vypíše před menu
+$t_file     = "./temp_print_file.txt"   # Protože RAW data, UTF8 a Out-Printer se dohromady nebaví :/
 
 # Import ceníku - při úpravách je nutné náležitě upravit funkci vytvor-uctenku (ten velkej ošklivej if skoro dole)
 if ( Test-Path $($conf.files.cenik) ) {
@@ -40,7 +38,7 @@ if ( Test-Path $($conf.files.cenik) ) {
         [int]$ce_cena = $ce_polozka.cena
     
         $cenik+=[PSCustomObject]@{ id=$ce_i; audit=$ce_audit; DMC_text=$DMC_text; nazev=$ce_nazev; cena=$ce_cena }
-        $ce_i++ 
+        $ce_i++
     }
 } else { $Message2Menu = "@init ERROR: Ceníkový soubor ($($conf.files.cenik)) nebyl nalezen, nebude možné tisknout účtenky. Soubor vytvořte včetně odpovídajícího obsahu nebo kontaktujte knihovního technomága.`n" }
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
@@ -63,7 +61,7 @@ FUNCTION Write-Menu {
     Write-Host "  3: Dávkový tisk čárových kódů na knihy"
     Write-Host "  4: Tisk MVS štítků"
     Write-Host "  5: Tisk čtenářské průkazky"
-    Write-Host "`n  d: Diagnostika spojení`t`tx: Nastavení tiskárny`n  q: Ukončit skript`t`t`tm: Manual override"
+    Write-Host "`n  d: Diagnostika spojení`t`tx: Nastavení tiskárny`t`t+ Vytvořit/Importovat čtenáře`n  q: Ukončit skript`t`t`tm: Manual override"
 
     $volba = Read-Host -Prompt "`n~ Volba"
         SWITCH ( $volba )
@@ -78,18 +76,33 @@ FUNCTION Write-Menu {
             q { pac-a-pusu }
             x { Set-Xprinter }
             m { manual-override }
+            + { novy-ctenar }
+            t { test-feature }
             Default { if ( "" -ne $volba ) {$Script:Message2Menu+="@Write-Menu INFO: Neplatná volba <$volba>, opakujte zadání.`n"} }
         }
     Write-Menu # Zachycení neplatné volby a taky doběhlé funkce...nechť rekurze vládne světu
     Clear-Variable -Scope Script -Name r_error 2>&1 | Out-Null
 }
 
+FUNCTION test-feature {
+    Write-Host ">> Entered test feature, now processing..."
+
+    $postParams = '{ "firstname": "Ondroro", "surname": "Kororo", "cardnumber": "121212", "city": "Brno", "category_id": "KJMPL", "library_id": "11", "address": "Nezadáno 0", "incorrect_address": true }'
+
+    $pesto = Invoke-RestMethod -Method POST -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("$($conf.auth.user):$($conf.auth.password)"))} -URI "$($conf.uri.api)/patrons" -Body $($postParams)
+
+    #$pesto
+    if ($null -ne $pesto.patron_id) {Start-Process "https://krizovatka-staff.koha.cloud/cgi-bin/koha/members/memberentry.pl?op=modify&borrowernumber=$($pesto.patron_id)"}
+    else { Write-Host "@Test-Feature ERROR: Vytvoření čtenáře se nezdařilo!" }
+    Write-Host "> $pesto`n-- -- END -- -- $($postParams)"; pause
+}
+
 FUNCTION tisk ($tdata) {        #add testpath nebo trycatch na tiskarnu
     if ( $null -ne $tdata ) {
         Write-Host "`n@tisk INFO: Tisková data se zpracovávají a odesílají do tiskárny..."
-        $tdata | Out-File $f_tmp -Encoding UTF8
+        $tdata | Out-File $t_file -Encoding UTF8
         cmd /C 'COPY /B .\temp_print_file.txt \\localhost\Zebra'  # Hello darkness, my old friend...I've come to talk with you again.
-        # ZKUSIT TOHLE # Start-Process -FilePath "cmd" -ArgumentList "COPY /B $f_tmp $($conf.printer)"
+        # ZKUSIT TOHLE # Start-Process -FilePath "cmd" -ArgumentList "COPY /B $t_file $($conf.printer)"
         Clear-Variable -Name tdata
     }
     else { $Script:Message2Menu+="@tisk ERROR: Žádná data k tisku.`n"}
@@ -98,6 +111,7 @@ FUNCTION tisk ($tdata) {        #add testpath nebo trycatch na tiskarnu
 FUNCTION pac-a-pusu {
     Write-Host "Pac a pusu :*"
     Start-Sleep -s 0.52
+    $host.UI.RawUI.WindowTitle = "X TERMIX byl ukončen normálně"
     exit
 }
 
@@ -113,7 +127,7 @@ FUNCTION varovani-tiskarny {
 FUNCTION tisk-MVS ([bool]$rerun) {
     varovani-tiskarny; if ( $chyba_konfigurace -ne 1 ) {
 
-    if ( $rerun -ne 1 ) { Write-Host "`n> Tisk MVS štítků" }
+    if ( $rerun -ne 1 ) { Clear-Host; Write-Host "> Tisk MVS štítků" }
 
     TRY { [int]$kolik = Read-Host -Prompt "~ Počet tisknutých štítků"; [bool]$m_error = 0 }
         CATCH {
@@ -188,11 +202,12 @@ FUNCTION vytvor-barcode ( $b_typ, [long]$bdata ) { #k = knihy; p = průkazky
     varovani-tiskarny; if ( $chyba_konfigurace -ne 1 ) {
 
     if ( $bdata -ne 0 ) { [long]$kod = $bdata; Write-Host "~ Začátek generovaného rozsahu je $kod" }
-    else { 
+    else {
+        Clear-Host
         SWITCH ( $b_typ )
         {
-            k { Write-Host "`n> DÁVKOVÝ tisk čárových kódů na knihy" }
-            p { Write-Host "`n> DÁVKOVÝ tisk čárových kódů na průkazky" }
+            k { Write-Host "> DÁVKOVÝ tisk čárových kódů na knihy" }
+            p { Write-Host "> DÁVKOVÝ tisk čárových kódů na průkazky" }
         }
 
         TRY { 
@@ -253,7 +268,8 @@ FUNCTION vytvor-barcode ( $b_typ, [long]$bdata ) { #k = knihy; p = průkazky
 FUNCTION tisk-ctenare {
     varovani-tiskarny; if ( $chyba_konfigurace -ne 1 ) {
 
-    Write-Host "`n> Tisk čtenářské průkazky"
+    Clear-Host
+    Write-Host "> Tisk čtenářské průkazky"
 
     [Array]$ctenar = Get-Ctenar -metoda bcode
 
@@ -298,11 +314,12 @@ FUNCTION tisk-ctenare {
     Clear-Variable -Name prukazka, c_error, ErrorMessage, a 2>&1 | Out-Null
 }}
 
-FUNCTION Fronta-Rezervaci {    
+FUNCTION Fronta-Rezervaci {
+    Clear-Host
+    Write-Host "> Fronta rezervací"
     $rezervace = Get-FrontaRezervaci
     $i = 0; $r_pocet = $rezervace.Count
     if ($r_pocet -eq 0) { $Script:Message2Menu+="@fronta-rezervaci INFO: Nebyly nalezeny žádné existující rezervace.`n"; RETURN $null }
-    Write-Host "`n> Fronta rezervací"
     Write-Host "@NEW-fronta-rezervaci INFO: Zpracovávají se data ($r_pocet rez.), čekejte prosím..."
 
     Write-Host "`n`t~~ VÝPIS FRONTY REZERVACÍ ~~"
@@ -653,7 +670,7 @@ FUNCTION manual-override {
 
 FUNCTION probe-KOHA {
     Write-Host "`n!!> DIAGNOSTIKA SPOJENÍ SE SYSTÉMEM KOHA`n ~ Výpis základních údajů..."
-    Write-Host "`tVýchozí URI: $($conf.uri.api)`n`tUživatel: $k_user`n`tHeslo: $k_pass"
+    Write-Host "`tVýchozí URI: $($conf.uri.api)`n`tUživatel: $($conf.auth.user)`n`tHeslo: ** Dostupné v konfiguračním souboru ./config.json **"
     Write-Host " ~ Dojde k pokusu o stažení dat pro patron_id = 2 (Michal Denár)"; pause
     Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("$($conf.auth.user):$($conf.auth.password)")) } -URI "$($conf.uri.api)/patrons/2"
     Write-Host "`n ~ Dojde k pokusu o stažení dat pro cardnumber = 26000138 (Martin Krčál)"; pause
@@ -663,7 +680,27 @@ FUNCTION probe-KOHA {
     Write-Host "`t`t~~ KONEC DIAGNOSTIKY ~~"; pause
 }
 
+FUNCTION novy-ctenar {
+    Clear-Host
+    Write-Host "> Vytvořit/Importovat nového čtenáře"
+    TRY { [int]$CardNum = Read-Host -Prompt " ~ Zadejte číslo kartičky" }   <# Od této chvíle mohou být teoreticky dotazovány systémy KJM #>
+    CATCH { $Script:Message2Menu+="@Novy-Ctenar ERROR: Chybně zadaná kartička.`n"; break }
+    if (0 -eq $CardNum ) { $Script:Message2Menu+="@Novy-Ctenar ERROR: Chybně zadaná kartička.`n"; break }
+    
+    $NewSurn = Read-Host -Prompt " ~ Zadejte příjmení čtenáře (bez diakritiky)"
+
+    [string]$postParams = '{ "surname": "' + $NewSurn + '", "cardnumber": "' + $CardNum + '", "city": "Brno", "category_id": "KJMPL", "library_id": "11", "address": "Nezadano 0", "incorrect_address": true }'
+    $Response = Invoke-RestMethod -Method POST -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("$($conf.auth.user):$($conf.auth.password)"))} -URI "$($conf.uri.api)/patrons" -Body $postParams
+    
+    $Response
+    if ( $null -ne $Response.patron_id) { Write-Host "@Novy-Ctenar INFO: Čtenářské konto bylo úspěšně založeno. Nyní budete přesměrováni..."; Start-Process "https://krizovatka-staff.koha.cloud/cgi-bin/koha/members/memberentry.pl?op=modify&borrowernumber=$($Response.patron_id)"}
+    else { Write-Host "@Novy-Ctenar ERROR: Vytvoření čtenáře se nezdařilo!" -BackgroundColor Red -ForegroundColor White }
+
+    pause
+}
+
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 #                            LET'S BEGIN, SHALL WE?                            #
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
+$host.UI.RawUI.WindowTitle = "X TERMIX | Release $release"
 Write-Menu
