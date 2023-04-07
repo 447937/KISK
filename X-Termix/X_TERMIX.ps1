@@ -1,9 +1,8 @@
-﻿$release = "2023-03-31"
+﻿$release = "2023-04-07"
 <# 
 Tiskař štítků pro Zebru na Křižovatce
-Verze ze dne: 12.12.2022
 Knihovna na Křižovatce
-Ondřej Kadlec 2020-2022
+Ondřej Kadlec 2020-2023
 Kdo za to může: 447937@mail.muni.cz
 Využívá ZPL (Zebra Programming Language), víc info třeba tu: https://www.zebra.com/content/dam/zebra/manuals/printers/common/programming/zpl-zbi2-pm-en.pdf
 Pro čárové kódy používáme CODE_128 i EAN-13 (záleží jak na co).
@@ -61,7 +60,7 @@ FUNCTION Write-Menu {
     Write-Host "  3: Dávkový tisk čárových kódů na knihy"
     Write-Host "  4: Tisk MVS štítků"
     Write-Host "  5: Tisk čtenářské průkazky"
-    Write-Host "`n  d: Diagnostika spojení`t`tx: Nastavení tiskárny`t`t+ Vytvořit/Importovat čtenáře`n  q: Ukončit skript`t`t`tm: Manual override"
+    Write-Host "`n  d: Diagnostika spojení`t`tx: Nastavení tiskárny`t`ti: Vytvořit/Importovat čtenáře`n  q: Ukončit skript`t`t`tm: Manual override`t`tf: Upravit/zobrazit důležité soubory"
 
     $volba = Read-Host -Prompt "`n~ Volba"
         SWITCH ( $volba )
@@ -76,7 +75,8 @@ FUNCTION Write-Menu {
             q { pac-a-pusu }
             x { Set-Xprinter }
             m { manual-override }
-            + { novy-ctenar }
+            i { novy-ctenar }
+            f { files-menu }
             t { test-feature }
             Default { if ( "" -ne $volba ) {$Script:Message2Menu+="@Write-Menu INFO: Neplatná volba <$volba>, opakujte zadání.`n"} }
         }
@@ -101,7 +101,9 @@ FUNCTION tisk ($tdata) {        #add testpath nebo trycatch na tiskarnu
     if ( $null -ne $tdata ) {
         Write-Host "`n@tisk INFO: Tisková data se zpracovávají a odesílají do tiskárny..."
         $tdata | Out-File $t_file -Encoding UTF8
-        cmd /C 'COPY /B .\temp_print_file.txt \\localhost\Zebra'  # Hello darkness, my old friend...I've come to talk with you again.
+        #cmd /C 'COPY /B .\temp_print_file.txt \\localhost\Zebra'
+        #cmd /C 'COPY /B .\temp_print_file.txt \\localhost\Zebra'  # Hello darkness, my old friend...I've come to talk with you again.
+        cmd /C 'COPY /B '+ $t_file  + ' ' + $conf.printer + ''  # Hello darkness, my old friend...I've come to talk with you again.
         # ZKUSIT TOHLE # Start-Process -FilePath "cmd" -ArgumentList "COPY /B $t_file $($conf.printer)"
         Clear-Variable -Name tdata
     }
@@ -160,8 +162,7 @@ FUNCTION Get-Ctenar ($metoda, $param) { #id=dle ID čtenáře; bcode=dle čárov
                 [long]$prukazka = Read-Host -Prompt "~ Číslo průkazky" }
             CATCH {
                 [bool]$c_error=1
-                $ErrorMessage = $_.Exception.Message
-                $Script:Message2Menu+="`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n@Get-Ctenar $ErrorMessage`n"
+                $Script:Message2Menu+="@Get-Ctenar ERROR: $($_.Exception.Message)`n"
                 $Script:ErrorMessage="Došlo k zadání nečíselné hodnoty."
                 RETURN $null
             }
@@ -174,8 +175,7 @@ FUNCTION Get-Ctenar ($metoda, $param) { #id=dle ID čtenáře; bcode=dle čárov
                     }
                 CATCH {
                     [bool]$c_error=1
-                    $ErrorMessage = $_.Exception.Message
-                    $Script:Message2Menu+="`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n@Get-Ctenar $ErrorMessage`n"
+                    $Script:Message2Menu+="@Get-Ctenar ERROR: $($_.Exception.Message)`n"
                     $Script:ErrorMessage = "Chyba komunikace se serverem."
                     RETURN $null
                 }
@@ -189,8 +189,7 @@ FUNCTION Get-Ctenar ($metoda, $param) { #id=dle ID čtenáře; bcode=dle čárov
                 }
             CATCH {
                 [bool]$c_error=1
-                $ErrorMessage = $_.Exception.Message
-                $Script:Message2Menu+="`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n@Get-Ctenar $ErrorMessage`n"
+                $Script:Message2Menu+="@Get-Ctenar ERROR: $($_.Exception.Message)`n"
                 $Script:ErrorMessage = "Chyba komunikace se serverem."
                 RETURN $null
             }
@@ -222,8 +221,7 @@ FUNCTION vytvor-barcode ( $b_typ, [long]$bdata ) { #k = knihy; p = průkazky
         }
         CATCH {
             [bool]$b_error = 1
-            $ErrorMessage = $_.Exception.Message
-            $Script:Message2Menu+="`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n@vytvor-barcode $ErrorMessage"
+            $Script:Message2Menu+="@vytvor-barcode ERROR: $($_.Exception.Message)"
         }
     }
 
@@ -320,7 +318,7 @@ FUNCTION Fronta-Rezervaci {
     $rezervace = Get-FrontaRezervaci
     $i = 0; $r_pocet = $rezervace.Count
     if ($r_pocet -eq 0) { $Script:Message2Menu+="@fronta-rezervaci INFO: Nebyly nalezeny žádné existující rezervace.`n"; RETURN $null }
-    Write-Host "@NEW-fronta-rezervaci INFO: Zpracovávají se data ($r_pocet rez.), čekejte prosím..."
+    Write-Host "@fronta-rezervaci INFO: Zpracovávají se data ($r_pocet rez.), čekejte prosím..."
 
     Write-Host "`n`t~~ VÝPIS FRONTY REZERVACÍ ~~"
     $vygenerovano=Get-Date -Format "dd/MM/yyyy HH:mm"
@@ -403,35 +401,16 @@ FUNCTION Get-Report ($report, $param) { #určeno pro nezabezpečené reporty (kn
 
 FUNCTION Get-FrontaRezervaci {
     TRY {
-        $ErrorMessage="Chyba spojení se serverem!"
-        $Script:hdata= Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("$($conf.auth.user):$($conf.auth.password)")) } -URI "$($conf.uri.api)/holds"
         $holds= Invoke-RestMethod -Method GET -Headers @{ Authorization = "Basic "+ [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("$($conf.auth.user):$($conf.auth.password)")) } -URI "$($conf.uri.api)/holds"
         RETURN $holds
     }
     CATCH {
         [bool]$Script:r_error=1
-        $Script:ErrorMessage = $_.Exception.Message
-        Write-Host "`t`t`t!! DOŠLO K VÝZNAMNÉ CHYBĚ !!`n@Get-FrontaRezervaci $ErrorMessage`n"
+        $Script:Message2Menu+="@Get-FrontaRezervaci ERROR: $($_.Exception.Message)`n"
         RETURN $null
     }
 }
 
-FUNCTION Deduplikace-Rezervaci ($vstup, [string]$metoda) {
-    SWITCH ($metoda) {
-        "deduplikace"   { #pesto
-                          #neco
-                        }
-        "vyradit"       { # Vyřadit již neexistující záznamy ze souboru
-                            #pesto
-                        }
-        "zaznamenej"    { if ($vstup.Count -ne 0 ) {
-                            $a="biblio_id;patron_id"
-                            ForEach ( $polozka IN $vstup ) { $a+="`n$($polozka.biblio_id);$($polozka.patron_id)" }
-                            $a | Out-File $($conf.files.duplikaty_rezervaci) -Encoding UTF8
-                          }
-                        }
-    }
-}
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 #       ÚČTENKY / stvrzenky
 
@@ -696,6 +675,15 @@ FUNCTION novy-ctenar {
     if ( $null -ne $Response.patron_id) { Write-Host "@Novy-Ctenar INFO: Čtenářské konto bylo úspěšně založeno. Nyní budete přesměrováni..."; Start-Process "https://krizovatka-staff.koha.cloud/cgi-bin/koha/members/memberentry.pl?op=modify&borrowernumber=$($Response.patron_id)"}
     else { Write-Host "@Novy-Ctenar ERROR: Vytvoření čtenáře se nezdařilo!" -BackgroundColor Red -ForegroundColor White }
 
+    pause
+}
+
+FUNCTION files-menu {
+    Clear-Host
+    Write-Host "> Upravit nebo zobrazit důležité soubory"
+    Write-Host "== == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == =="
+    Write-Host " c: Ceník`te: Error log`tk: Konfigurační soubor`tu: Účtenky`tau: Auditované účtenky"
+    Write-Host "== == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == =="
     pause
 }
 
