@@ -16,7 +16,7 @@
         "ctenari": "?name=x-kategorie_ctenaru&annotated=1"
     },
     "files": {
-        "audit": "./x-AditovaneUcitenky.csv",
+        "audit": "./x-AditovaneUctenky.csv",
         "uctenky": "./x-uctenky.csv",
         "cenik": "./x-cenik.csv",
         "dalsi_ckod": "./x-dalsi_ckod_p.txt"
