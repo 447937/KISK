@@ -21,7 +21,9 @@ powershell -ExecutionPolicy Bypass -Command "& '%~d0%~p0%~n0.ps1'"
 #>
 
 TRY { $conf = Get-Content -Raw "./config.json" -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
-CATCH { Write-Host "@init ERROR: Chyba při zpracování konfiguračního souboru config.json!`n - Vetšina funkcí bude omezena!`n > $($_.Exception.Message)" -BackgroundColor Red -ForegroundColor White ; pause }
+CATCH { Write-Host "@init ERROR: Chyba při zpracování konfiguračního souboru config.json!`n - Vetšina funkcí bude omezena!`n > $($_.Exception.Message)" -BackgroundColor Red -ForegroundColor White
+	$Script:Message2Menu+="@init ERROR: Chyba při zpracování konfiguračního souboru config.json! Vetšina funkcí bude omezena!`n"
+	pause }
 
 $f_log      = "./x-error_log.txt"       # Log pro zaznamenání errorů; ~ to co se vypíše před menu
 $t_file     = "./temp_print_file.txt"   # Protože RAW data, UTF8 a Out-Printer se dohromady nebaví :/
