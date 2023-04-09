@@ -1,4 +1,4 @@
-﻿$release = "2023-04-07"
+﻿$release = "2023-04-09"
 <# 
 Tiskař štítků pro Zebru na Křižovatce
 Knihovna na Křižovatce
@@ -16,14 +16,12 @@ powershell -ExecutionPolicy Bypass -Command "& '%~d0%~p0%~n0.ps1'"
 <#
 # KOHA login a URI (Nutné povolit BasicAuth pro REST API v KOHA)
 # Konfigurační soubor: config.json
-# Logo knihobny pro Zebru - kovertováno pomocí http://labelary.com/viewer.html
+# Logo knihobny pro Zebru - kovertováno pomocí http://labelary.com/viewer.html ... base64
 # Je nutné mít správně nastavenou tiskárnu ve Windows, tak aby brala surová data.
 #>
 
 TRY { $conf = Get-Content -Raw "./config.json" -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
-CATCH { Write-Host "@init ERROR: Chyba při zpracování konfiguračního souboru config.json!`n - Vetšina funkcí bude omezena!`n > $($_.Exception.Message)" -BackgroundColor Red -ForegroundColor White
-	$Script:Message2Menu+="@init ERROR: Chyba při zpracování konfiguračního souboru config.json! Vetšina funkcí bude omezena!`n"
-	pause }
+CATCH { $ierr = "@init ERROR: Chyba při zpracování konfiguračního souboru config.json! Vetšina funkcí bude omezena!`n"; $Script:Message2Menu+=$ierr; Write-Host "$ierr > $($_.Exception.Message)" -BackgroundColor Red -ForegroundColor White; pause }
 
 $f_log      = "./x-error_log.txt"       # Log pro zaznamenání errorů; ~ to co se vypíše před menu
 $t_file     = "./temp_print_file.txt"   # Protože RAW data, UTF8 a Out-Printer se dohromady nebaví :/
@@ -41,19 +39,14 @@ if ( Test-Path $($conf.files.cenik) ) {
         $cenik+=[PSCustomObject]@{ id=$ce_i; audit=$ce_audit; DMC_text=$DMC_text; nazev=$ce_nazev; cena=$ce_cena }
         $ce_i++
     }
-} else { $Message2Menu = "@init ERROR: Ceníkový soubor ($($conf.files.cenik)) nebyl nalezen, nebude možné tisknout účtenky. Soubor vytvořte včetně odpovídajícího obsahu nebo kontaktujte knihovního technomága.`n" }
+} else { $Script:Message2Menu += "@init ERROR: Ceníkový soubor ($($conf.files.cenik)) nebyl nalezen, nebude možné tisknout účtenky. Soubor vytvořte včetně odpovídajícího obsahu nebo kontaktujte knihovního technomága.`n" }
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
 FUNCTION Write-Menu {
     Clear-Host
     Write-Host "`t`t`t`t`t`t>>> X TERMIX <<<`n"
-    if ( $null -ne $Message2Menu ) {
-        Write-Host "$Message2Menu"
-        "[$(Get-Date -Format "yyyy/MM/dd HH:mm:ss")]`n$Script:Message2Menu" | Out-File $f_log -Append -Encoding UTF8 
-        $Script:Message2Menu = $null 
-    }
-
-    if ( $($conf.rezim_lepitek) -eq 1 ) { Write-Host "@init INFO: Předpokládá se tisk lepítek.`n" }
+    if ( $null -ne $Message2Menu ) { Write-Host $Message2Menu; Write-Log -inString $Message2Menu; $Script:Message2Menu = $null }
+    if ( $($conf.rezim_lepitek) -eq 1 ) { Write-Host "@Write-Menu INFO: Předpokládá se tisk lepítek.`n" }
 
     Write-Host "> MENU"
     Write-Host "  0: Fronta rezervací"
@@ -80,10 +73,11 @@ FUNCTION Write-Menu {
             i { novy-ctenar }
             f { files-menu }
             t { test-feature }
-            Default { if ( "" -ne $volba ) {$Script:Message2Menu+="@Write-Menu INFO: Neplatná volba <$volba>, opakujte zadání.`n"} }
+            Default { if ( "" -ne $volba ) {$Script:Message2Menu+="@Write-Menu WARNING: Neplatná volba <$volba>, opakujte zadání.`n"} }
         }
-    Write-Menu # Zachycení neplatné volby a taky doběhlé funkce...nechť rekurze vládne světu
+    
     Clear-Variable -Scope Script -Name r_error 2>&1 | Out-Null
+    Write-Menu # Zachycení neplatné volby a taky doběhlé funkce...nechť rekurze vládne světu
 }
 
 FUNCTION test-feature {
@@ -103,13 +97,18 @@ FUNCTION tisk ($tdata) {        #add testpath nebo trycatch na tiskarnu
     if ( $null -ne $tdata ) {
         Write-Host "`n@tisk INFO: Tisková data se zpracovávají a odesílají do tiskárny..."
         $tdata | Out-File $t_file -Encoding UTF8
-        #cmd /C 'COPY /B .\temp_print_file.txt \\localhost\Zebra'
-        #cmd /C 'COPY /B .\temp_print_file.txt \\localhost\Zebra'  # Hello darkness, my old friend...I've come to talk with you again.
-        cmd /C 'COPY /B '+ $t_file  + ' ' + $conf.printer + ''  # Hello darkness, my old friend...I've come to talk with you again.
-        # ZKUSIT TOHLE # Start-Process -FilePath "cmd" -ArgumentList "COPY /B $t_file $($conf.printer)"
+        TRY { if ($Env:windir) { #cmd /C 'COPY /B .\temp_print_file.txt \\localhost\Zebra'
+                                    #cmd /C 'COPY /B .\temp_print_file.txt \\localhost\Zebra'  # Hello darkness, my old friend...I've come to talk with you again.
+                                    cmd /C 'COPY /B '+ $t_file  + ' ' + $conf.printer + ''  # Hello darkness, my old friend...I've come to talk with you again.
+                                    # ZKUSIT TOHLE # Start-Process -FilePath "cmd" -ArgumentList "COPY /B $t_file $($conf.printer)"
+                               } else { cp $t_file $conf.printer }
+
+            if ($LASTEXITCODE -eq 1 ) { $Script:Message2Menu+="@tisk ERROR: Nebylo možné vytisknout požadovaná data - LastExitCode = $LASTEXITCODE`n"; pause }
+        } CATCH { $Script:Message2Menu+="@tisk ERROR: Nebylo možné vytisknout požadovaná data - $($_.Exception.Message)`n" }
+        
         Clear-Variable -Name tdata
     }
-    else { $Script:Message2Menu+="@tisk ERROR: Žádná data k tisku.`n"}
+    else { $Script:Message2Menu+="@tisk WARNING: Žádná data k tisku.`n"}
 }
 
 FUNCTION pac-a-pusu {
@@ -126,6 +125,10 @@ FUNCTION varovani-tiskarny {
         if ( $sub_volba -eq 0 ) { Set-Xprinter }
         elseif ( $sub_volba -eq 2 ) { [bool]$Script:conf.rezim_lepitek = 1 }
     }
+}
+
+FUNCTION Write-Log ($inString) {
+    "[$(Get-Date -Format "yyyy/MM/dd HH:mm:ss")]`n$inString" | Out-File $f_log -Append -Encoding UTF8 -ErrorAction Stop
 }
 
 FUNCTION tisk-MVS ([bool]$rerun) {
@@ -215,7 +218,7 @@ FUNCTION vytvor-barcode ( $b_typ, [long]$bdata ) { #k = knihy; p = průkazky
             if ( $b_typ -eq "p" -AND ( Test-Path $($conf.files.dalsi_ckod) ) ) {
                 TRY { [int]$dalsi_p_kod = Get-Content $($conf.files.dalsi_ckod)
                         Write-Host "- Stikněte ENTER pro pokračování v číselné řadě průkazek. (nezadávejte žádné hodnoty)`n- Další tisknuté číslo průkazky bude: $dalsi_p_kod"
-                } CATCH { Write-Host "@vytvor-barcode WARNING: Chyba při čtení pomocného souboru." }
+                } CATCH { $err = "@vytvor-barcode WARNING: Chyba při čtení pomocného souboru."; Write-Host $err; Write-Log -inString "$err - $($_.Exception.Message)" }
             }
 
             [long]$kod = Read-Host -Prompt "~ Začátek generovaného rozsahu"; $e_mess = 1
@@ -683,10 +686,24 @@ FUNCTION novy-ctenar {
 FUNCTION files-menu {
     Clear-Host
     Write-Host "> Upravit nebo zobrazit důležité soubory"
-    Write-Host "== == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == =="
+    Write-Host "`n== == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == =="
     Write-Host " c: Ceník`te: Error log`tk: Konfigurační soubor`tu: Účtenky`tau: Auditované účtenky"
-    Write-Host "== == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == =="
-    pause
+    Write-Host " q: Návrat do hlavního menu"
+    Write-Host "== == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == ==`n"
+    $volba = Read-Host -Prompt "~ Volba"
+
+    SWITCH ($volba) {
+        'c' { $soubor = $conf.files.cenik }
+        'e' { $soubor = $f_log }
+        'k' { $soubor = "./config.json" }
+        'u' { $soubor = $conf.files.uctenky }
+        'au'{ $soubor = $conf.files.audit }
+        'q' { RETURN $NULL }
+    }
+
+    if ($volba -IN @("c", "e", "k", "u", "au")) { Start-Process -FilePath "notepad.exe" -ArgumentList "$soubor" }
+
+    files-menu
 }
 
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
