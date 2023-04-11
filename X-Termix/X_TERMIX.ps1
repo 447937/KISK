@@ -1,4 +1,4 @@
-﻿$release = "2023-04-09"
+﻿$release = "2023-04-11"
 <# 
 Tiskař štítků pro Zebru na Křižovatce
 Knihovna na Křižovatce
@@ -128,7 +128,9 @@ FUNCTION varovani-tiskarny {
 }
 
 FUNCTION Write-Log ($inString) {
-    "[$(Get-Date -Format "yyyy/MM/dd HH:mm:ss")]`n$inString" | Out-File $f_log -Append -Encoding UTF8 -ErrorAction Stop
+    TRY { "[$(Get-Date -Format "yyyy/MM/dd HH:mm:ss")]`n$inString" | Out-File $f_log -Append -Encoding UTF8 }
+    CATCH { Write-Host "@Write-Log ERROR: Nebylo možné zapsat do logu ($f_log)`n > $($_.Exception.Message)" -BackgroundColor Red -ForegroundColor White }
+
 }
 
 FUNCTION tisk-MVS ([bool]$rerun) {
@@ -701,7 +703,8 @@ FUNCTION files-menu {
         'q' { RETURN $NULL }
     }
 
-    if ($volba -IN @("c", "e", "k", "u", "au")) { Start-Process -FilePath "notepad.exe" -ArgumentList "$soubor" }
+    if ($Env:windir) { $editor = "notepad.exe" } else { $editor = "gedit" }
+    if ($volba -IN @("c", "e", "k", "u", "au")) { Start-Process -FilePath $editor -ArgumentList $soubor }
 
     files-menu
 }
