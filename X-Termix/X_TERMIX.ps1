@@ -1,4 +1,4 @@
-﻿$release = "2023-04-11"
+﻿$release = "2023-04-12"
 <# 
 Tiskař štítků pro Zebru na Křižovatce
 Knihovna na Křižovatce
@@ -23,8 +23,8 @@ powershell -ExecutionPolicy Bypass -Command "& '%~d0%~p0%~n0.ps1'"
 TRY { $conf = Get-Content -Raw "./config.json" -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
 CATCH { $ierr = "@init ERROR: Chyba při zpracování konfiguračního souboru config.json! Vetšina funkcí bude omezena!`n"; $Script:Message2Menu+=$ierr; Write-Host "$ierr > $($_.Exception.Message)" -BackgroundColor Red -ForegroundColor White; pause }
 
-$f_log      = "./x-error_log.txt"       # Log pro zaznamenání errorů; ~ to co se vypíše před menu
-$t_file     = "./temp_print_file.txt"   # Protože RAW data, UTF8 a Out-Printer se dohromady nebaví :/
+$f_log      = ".\x-error_log.txt"       # Log pro zaznamenání errorů; ~ to co se vypíše před menu
+$t_file     = ".\temp_print_file.txt"   # Protože RAW data, UTF8 a Out-Printer se dohromady nebaví :/
 
 # Import ceníku - při úpravách je nutné náležitě upravit funkci vytvor-uctenku (ten velkej ošklivej if skoro dole)
 if ( Test-Path $($conf.files.cenik) ) {
@@ -97,13 +97,8 @@ FUNCTION tisk ($tdata) {        #add testpath nebo trycatch na tiskarnu
     if ( $null -ne $tdata ) {
         Write-Host "`n@tisk INFO: Tisková data se zpracovávají a odesílají do tiskárny..."
         $tdata | Out-File $t_file -Encoding UTF8
-        TRY { if ($Env:windir) { #cmd /C 'COPY /B .\temp_print_file.txt \\localhost\Zebra'
-                                    #cmd /C 'COPY /B .\temp_print_file.txt \\localhost\Zebra'  # Hello darkness, my old friend...I've come to talk with you again.
-                                    cmd /C 'COPY /B '+ $t_file  + ' ' + $conf.printer + ''  # Hello darkness, my old friend...I've come to talk with you again.
-                                    # ZKUSIT TOHLE # Start-Process -FilePath "cmd" -ArgumentList "COPY /B $t_file $($conf.printer)"
-                               } else { cp $t_file $conf.printer }
-
-            if ($LASTEXITCODE -eq 1 ) { $Script:Message2Menu+="@tisk ERROR: Nebylo možné vytisknout požadovaná data - LastExitCode = $LASTEXITCODE`n"; pause }
+        TRY { if ($Env:windir) { Invoke-Expression "cmd /C 'COPY /B $t_file $($conf.printer)'" } else { cp $t_file $conf.printer }
+                if ($LASTEXITCODE -eq 1 ) { $Script:Message2Menu+="@tisk ERROR: Nebylo možné vytisknout požadovaná data - LastExitCode = $LASTEXITCODE`n"; pause }
         } CATCH { $Script:Message2Menu+="@tisk ERROR: Nebylo možné vytisknout požadovaná data - $($_.Exception.Message)`n" }
         
         Clear-Variable -Name tdata
@@ -228,7 +223,7 @@ FUNCTION vytvor-barcode ( $b_typ, [long]$bdata ) { #k = knihy; p = průkazky
         }
         CATCH {
             [bool]$b_error = 1
-            $Script:Message2Menu+="@vytvor-barcode ERROR: $($_.Exception.Message)"
+            $Script:Message2Menu+="@vytvor-barcode ERROR: $($_.Exception.Message)`n"
         }
     }
 
@@ -312,7 +307,7 @@ FUNCTION tisk-ctenare {
             ^FT^A0N,30,23^FO85,120^FD$c_mesto $c_psc^FS
         ^XZ"
     }
-    else { $Script:Message2Menu+="`n@tisk-ctenare ERROR: Nedefinovaná chyba...dejte vědět jak se to stalo. :) " } #Tohle asi nikdy nenastane, ale kdyby náhodou...
+    else { $Script:Message2Menu+="`n@tisk-ctenare ERROR: Nedefinovaná chyba...dejte vědět jak se to stalo. :)`n" } #Tohle asi nikdy nenastane, ale kdyby náhodou...
 
     if ( $null -ne $a ) { tisk -tdata $a }
 
