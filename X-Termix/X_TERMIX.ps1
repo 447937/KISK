@@ -1,4 +1,4 @@
-﻿$release = "2023-04-12"
+﻿$release = "2023-04-17"
 <# 
 Tiskař štítků pro Zebru na Křižovatce
 Knihovna na Křižovatce
@@ -23,8 +23,8 @@ powershell -ExecutionPolicy Bypass -Command "& '%~d0%~p0%~n0.ps1'"
 TRY { $conf = Get-Content -Raw "./config.json" -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
 CATCH { $ierr = "@init ERROR: Chyba při zpracování konfiguračního souboru config.json! Vetšina funkcí bude omezena!`n"; $Script:Message2Menu+=$ierr; Write-Host "$ierr > $($_.Exception.Message)" -BackgroundColor Red -ForegroundColor White; pause }
 
-$f_log      = ".\x-error_log.txt"       # Log pro zaznamenání errorů; ~ to co se vypíše před menu
-$t_file     = ".\temp_print_file.txt"   # Protože RAW data, UTF8 a Out-Printer se dohromady nebaví :/
+$f_log  = ".\x-error_log.txt"       # Log pro zaznamenání errorů; ~ to co se vypíše před menu
+$f_tmp  = ".\temp_print_file.txt"   # Protože RAW data, UTF8 a Out-Printer se dohromady nebaví :/
 
 # Import ceníku - při úpravách je nutné náležitě upravit funkci vytvor-uctenku (ten velkej ošklivej if skoro dole)
 if ( Test-Path $($conf.files.cenik) ) {
@@ -93,11 +93,11 @@ FUNCTION test-feature {
     Write-Host "> $pesto`n-- -- END -- -- $($postParams)"; pause
 }
 
-FUNCTION tisk ($tdata) {        #add testpath nebo trycatch na tiskarnu
+FUNCTION tisk ($tdata) {
     if ( $null -ne $tdata ) {
         Write-Host "`n@tisk INFO: Tisková data se zpracovávají a odesílají do tiskárny..."
-        $tdata | Out-File $t_file -Encoding UTF8
-        TRY { if ($Env:windir) { Invoke-Expression "cmd /C 'COPY /B $t_file $($conf.printer)'" } else { cp $t_file $conf.printer }
+        $tdata | Out-File $f_tmp -Encoding UTF8
+        TRY { if ($Env:windir) { Invoke-Expression "cmd /C 'COPY /B $f_tmp $($conf.printer)'" } else { cp $f_tmp $conf.printer }
                 if ($LASTEXITCODE -eq 1 ) { $Script:Message2Menu+="@tisk ERROR: Nebylo možné vytisknout požadovaná data - LastExitCode = $LASTEXITCODE`n"; pause }
         } CATCH { $Script:Message2Menu+="@tisk ERROR: Nebylo možné vytisknout požadovaná data - $($_.Exception.Message)`n" }
         
@@ -416,7 +416,7 @@ FUNCTION Get-FrontaRezervaci {
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 #       ÚČTENKY / stvrzenky
 
-FUNCTION Get-StringHash {       # vytvoření hashe účtenky (čas+cena?...a kolik znaků?) # Get-StringHash "$datum_cas$cena_celkem"
+FUNCTION Get-StringHash {       # vytvoření hashe účtenky
     param
     (
         [String] $String,
