@@ -1,4 +1,4 @@
-﻿$release = "2023-04-17"
+﻿$release = "2023-04-19"
 <# 
 Tiskař štítků pro Zebru na Křižovatce
 Knihovna na Křižovatce
@@ -556,7 +556,7 @@ FUNCTION generuj-uctenku ($operace) {
             $vyska += 40
 
             $a_aud="$a_aud ^FO30,$vyska ^FD$($polozka.text)^FS ^FO500,$vyska ^FD$($polozka.cena)^FS"
-            $a2DMC="$a2DMC$($polozka.DMC_text),$($polozka.cena);"
+            $a2DMC="$a2DMC$($polozka.DMC_text);$($polozka.cena);"
             $a2CSV="$a2CSV$hash;$vygenerovano;$($polozka.text);$($polozka.cena)`n"
         }
 
